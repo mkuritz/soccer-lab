@@ -1,0 +1,17 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Star Watchlist · Soccer Hub · Sports Labs</title><link rel="stylesheet" href="style.css">
+<style>:root{--txt:#e6ebf5;--mut:#9aa4c7;--line:#ffffff18;--acc:#53e3a6}.ok{color:var(--acc)}.mut{color:var(--mut)}</style><script src="https://sportslabshq.com/sl/sl.js" defer></script></head><body><div class="w">
+<header><a class="logo" href="./">⚽ Soccer <b>Hub</b></a><span class="mut sm">Star Watchlist</span></header>
+<div id="stars"><div class="card mut">Loading…</div></div><footer>Real ESPN match data. Prices: DraftKings via ESPN when posted. Not betting advice. 21+.</footer></div>
+<script>
+const $=id=>document.getElementById(id),esc=s=>String(s??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c])),am=p=>p>0?"+"+p:p;
+const tm=t=>new Date(t).toLocaleString("en-US",{weekday:"short",hour:"numeric",minute:"2-digit",timeZone:"America/New_York"})+" ET";
+let W=null,WS="gapg";
+const WC=[["player","Player"],["apps","Apps"],["g","G"],["a","A"],["gpg","G/app"],["gapg","G+A/app"],["sotpg","SOT/app"],["braces","Braces"],["hats","Hat tricks"],["gc2","2+ G+A"],["a2","2+ A"]];
+function stars(){if(!W){$("stars").innerHTML="";return}const R=W.rows.slice().sort((a,b)=>WS=="player"?a.player.localeCompare(b.player):(b[WS]-a[WS]));
+ $("stars").innerHTML=`<div class="card" style="margin-bottom:12px;overflow-x:auto"><div style="padding:8px 0 4px;font-weight:800">⭐ Star Watchlist <span class="mut" style="font-weight:500">core + auto-added on 2026-27 pace · tap a column to sort</span></div>
+ <table style="width:100%;border-collapse:collapse;font-size:12px"><tr>${WC.map(([k,l])=>`<th data-k="${k}" style="text-align:${k=="player"?"left":"right"};color:${k==WS?"var(--txt)":"var(--mut)"};cursor:pointer;padding:4px;font-size:10px;text-transform:uppercase">${l}</th>`).join("")}<th style="text-align:left;color:var(--mut);font-size:10px;padding:4px">NEXT · STATUS</th><th style="text-align:left;color:var(--mut);font-size:10px;padding:4px">LAST 5 (G/A)</th><th style="text-align:right;color:var(--mut);font-size:10px;padding:4px">ATG</th></tr>
+ ${R.map(r=>`<tr style="border-top:1px solid var(--line)">${WC.map(([k])=>`<td style="padding:5px 4px;text-align:${k=="player"?"left":"right"}">${k=="player"?`<b>${esc(r.player)}</b>${r.core?" ⭐":""} <span class="mut">${esc(r.club)}</span>`:r[k]}</td>`).join("")}<td style="padding:5px 4px">${r.next?`${esc(r.next.opp)} · ${tm(r.next.time)}<br><span class="${r.today?"ok":"mut"}" style="font-weight:700">${r.today?"Playing today · ":""}${esc(r.lineup||"")}</span>`:'<span class="mut">no match in 10 days</span>'}</td><td style="padding:5px 4px" class="l5">${r.l5.map(x=>x[1]+"/"+x[2]).join(" ")}</td><td style="padding:5px 4px;text-align:right">${r.price!=null?am(r.price):'<span class="mut">no price</span>'}</td></tr>`).join("")}</table>
+ <div class="mut" style="padding:6px 0">${esc(W.criteria.note)}. Auto-add: ${W.criteria.min_apps}+ apps, ${W.criteria.min_starts}+ starts, ${W.criteria.goals_per_app}+ goals/app, ${W.criteria.ga_per_app}+ G+A/app, ${W.criteria.sot_per_app}+ SOT/app.</div></div>`;
+ $("stars").querySelectorAll("th[data-k]").forEach(t=>t.onclick=()=>{WS=t.dataset.k;stars()})}
+fetch("https://betlab.sportslabshq.com/data/star_watch.json?t="+Date.now()).then(r=>r.json()).then(j=>{W=j;stars()}).catch(()=>{});
+</script><script src="navcfg.js"></script><script src="side.js"></script></body></html>
