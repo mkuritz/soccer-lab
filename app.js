@@ -15,7 +15,7 @@ async function load(){tabs();
 const recLg=r=>{if(r.lg)return r.lg;const m=String((r.ref||{}).rec||r.id||"").match(/\|(\d+)~/)||String((r.ref||{}).aid||"").match(/(\d+)/);return m?ALG[m[1]]:null};
 function story(g){const h=g.home,a=g.away,out=[];const fav=g.line&&g.line!="EVEN"?g.line.split(" ")[0]:null;
  out.push(`${esc(a.name)} (${esc(a.record||"—")}) at ${esc(h.name)} (${esc(h.record||"—")}).`);
- if(g.line)out.push(`Market: ${esc(g.line)}${g.total?`, total ${g.total}`:""} (${esc(g.odds_src||"sportsbook")} via ESPN).`);
+ if(g.line)out.push(`Market: ${esc(g.line)}${g.total?`, total ${g.total}`:""} (${esc(g.odds_src||"sportsbook")}).`);
  const x=CFG.extra?CFG.extra(g,EX):[];return out.concat(x)}
 function render(){const G=(D.games||[]).slice().sort((x,y)=>x.date<y.date?-1:1);
  $("upd").innerHTML=`Data updated ${ago(D.updated)} (${et(D.updated)}) · ${esc(D.league||"")}${D.week?" · Week "+D.week:""} ${D.season||""}`;
@@ -26,7 +26,7 @@ function render(){const G=(D.games||[]).slice().sort((x,y)=>x.date<y.date?-1:1);
  const S=D.standings||[],grps=[...new Set(S.map(r=>r.grp))];
  $("stand").innerHTML=grps.map(gp=>`<h3>${esc(gp)}</h3><div class="wrap"><table><tr><th>Team</th>${CFG.cols.map(c=>`<th>${c[1]}</th>`).join("")}</tr>${S.filter(r=>r.grp==gp).map(r=>`<tr><td><img class="lg" loading="lazy" decoding="async" width="32" height="32" src="${esc(LOGO64(r.logo))}" alt="">${esc(r.name)}</td>${CFG.cols.map(c=>`<td>${esc(r.st[c[0]]??"")}</td>`).join("")}</tr>`).join("")}</table></div>`).join("")||'<div class="mut">Standings unavailable.</div>';
  if(LG=="all")$("stand").innerHTML='<div class="mut">Pick a league above for its table.</div>';
- $("news").innerHTML=(D.news||[]).map(n=>`<div class="nw"><a href="${esc(n.u)}" target="_blank" rel="noopener">${esc(n.t)}</a><div class="mut sm">${et(n.d)} · ESPN</div></div>`).join("")||'<div class="mut">No headlines.</div>';
+ $("news").innerHTML=(D.news||[]).map(n=>`<div class="nw"><a href="${esc(n.u)}" target="_blank" rel="noopener">${esc(n.t)}</a><div class="mut sm">${et(n.d)}</div></div>`).join("")||'<div class="mut">No headlines.</div>';
  if(CFG.renderExtra)CFG.renderExtra(EX)}
 (async()=>{if(ALL)j(BL+"data/soccer_aidlg.json",{}).then(M=>{ALG=M||{};if(REC.length)render()});
  const [ex,tiers,txt,SG,LH]=await Promise.all([CFG.loadExtra?CFG.loadExtra():{},j(BL+"data/edge_tiers.json",{}),fetch(BL+"data/edge_log.jsonl?t="+Date.now()).then(r=>r.ok?r.text():"").catch(()=>""),j(BL+"data/soccer_goals.json",{rows:[]}),j(BL+"data/soccer_list_hits.json",{rows:[]})]);EX=ex||{};
