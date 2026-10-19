@@ -38,14 +38,30 @@ def main(sport):
     for k,p in lgs.items():
         if sport=="nfl": b=get(f"https://site.api.espn.com/apis/site/v2/sports/{p}/scoreboard")
         else:
-            b={"events":[]}
+            b={"events":[]};okc=0
             for i in range(8):
                 dd=(datetime.date.today()+datetime.timedelta(days=i)).strftime("%Y%m%d")
-                x=get(f"https://site.api.espn.com/apis/site/v2/sports/{p}/scoreboard?dates={dd}") or {}
+                x=get(f"https://site.api.espn.com/apis/site/v2/sports/{p}/scoreboard?dates={dd}"); okc+=x is not None; x=x or {}
                 b["events"]+=x.get("events",[]); b.setdefault("leagues",x.get("leagues")); b.setdefault("season",x.get("season"))
+            if not okc: b=None
         n=get(f"https://site.api.espn.com/apis/site/v2/sports/{p}/news")
         s=get(f"https://site.api.espn.com/apis/v2/sports/{p}/standings")
-        d={"updated":now,"games":slim_board(b),"news":slim_news(n),"standings":slim_stand(s),
+        games=slim_board(b)
+        if b is None:   # primary scoreboard down: keep last published games, refresh score/state from the backup feed
+            try:
+                import sl_backup as BK
+                prev=json.load(open(f"data/{k}.json")); games=prev.get("games") or []
+                td=datetime.datetime.now(datetime.timezone(datetime.timedelta(hours=-4))).date(); live_days={str(td),str(td-datetime.timedelta(days=1))}
+                for g in games:
+                    try: day=str((datetime.datetime.fromisoformat(g["date"].replace("Z","+00:00"))-datetime.timedelta(hours=4)).date())
+                    except Exception: continue
+                    if g.get("state")=="post" or day not in live_days: continue
+                    m=BK.find(BK.scores("nfl" if sport=="nfl" else "soccer",day),g["home"]["name"],g["away"]["name"])
+                    if m and m.get("hs") is not None:
+                        g["home"]["score"],g["away"]["score"]=str(m["hs"]),str(m["as"]); g["state"]=m["state"]; g["status"]="Final" if m["state"]=="post" else (m.get("detail") or g["status"])
+                print("primary scoreboard failed for",k,"- backup used")
+            except Exception as e: print("backup failed",k,type(e).__name__)
+        d={"updated":now,"games":games,"news":slim_news(n),"standings":slim_stand(s),
            "season":((b or {}).get("season") or {}).get("year"),"week":((b or {}).get("week") or {}).get("number"),
            "league":((b or {}).get("leagues") or [{}])[0].get("name")}
         if d["games"] or d["standings"]:

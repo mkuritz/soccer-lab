@@ -18,6 +18,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - run: python scripts/fetch.py soccer
+        env:
+          SL_BACKUP_KEY: ${{ secrets.SL_BACKUP_KEY }}
       - run: |
           git config user.name "sports-labs-bot"; git config user.email "actions@users.noreply.github.com"
           python3 scripts/srcscrub.py data; git add data; git diff --cached --quiet || (git commit -m "Soccer Hub data $(date -u +%FT%TZ)" && git pull --rebase && git push)
