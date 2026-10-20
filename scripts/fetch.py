@@ -17,6 +17,23 @@ def slim_board(j):
             "home":side(t["home"]),"away":side(t["away"]),"line":o.get("details"),"total":o.get("overUnder"),
             "odds_src":(o.get("provider") or {}).get("name"),"bc":[(b.get("names") or [None])[0] for b in c.get("broadcasts",[])][:2]})
     return out
+import re as _re
+_NR = [(r",? sources told ESPN('s [A-Z][\w.' -]+?)?(?=[,.;]|$| that| on)", ", sources said"), (r"\btold ESPN\b('s [A-Z][\w.' -]+)?", "said"),
+       (r",? (?:according to|per) ESPN(?:'s [A-Z][\w.' -]+?)?(?=[,.;]|$)", ""), (r"\bESPN(?:'s [A-Z][\w.' -]+?)? (?:reported|reports)\b", "it was reported")]
+_NR = [(_re.compile(a), b) for a, b in _NR]
+def news_neutral(items, hk, dk):
+    """Public news: rephrase outlet attributions; drop pieces that are about the outlet itself (e.g. 'Can ESPN predict...')."""
+    out = []
+    for a in items or []:
+        a = dict(a)
+        for k in (hk, dk):
+            v = a.get(k)
+            if isinstance(v, str):
+                for r, b in _NR: v = r.sub(b, v)
+                a[k] = _re.sub(r"\s{2,}", " ", v).replace(" ,", ",").replace(",,", ",")
+        if "ESPN" in (a.get(hk) or "") or "ESPN" in (a.get(dk) or ""): continue
+        out.append(a)
+    return out
 def slim_news(j):
     return [{"t":a.get("headline"),"d":a.get("published"),"u":((a.get("links") or {}).get("web") or {}).get("href"),"desc":a.get("description")} for a in (j or {}).get("articles",[])][:15]
 def slim_stand(j):
@@ -61,7 +78,7 @@ def main(sport):
                         g["home"]["score"],g["away"]["score"]=str(m["hs"]),str(m["as"]); g["state"]=m["state"]; g["status"]="Final" if m["state"]=="post" else (m.get("detail") or g["status"])
                 print("primary scoreboard failed for",k,"- backup used")
             except Exception as e: print("backup failed",k,type(e).__name__)
-        d={"updated":now,"games":games,"news":slim_news(n),"standings":slim_stand(s),
+        d={"updated":now,"games":games,"news":news_neutral(slim_news(n),"t","desc"),"standings":slim_stand(s),
            "season":((b or {}).get("season") or {}).get("year"),"week":((b or {}).get("week") or {}).get("number"),
            "league":((b or {}).get("leagues") or [{}])[0].get("name")}
         if d["games"] or d["standings"]:
