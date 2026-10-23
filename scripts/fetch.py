@@ -50,7 +50,7 @@ def main(sport):
     if sport=="nfl":
         lgs={"nfl":"football/nfl"}
     else:
-        lgs={"eng.1":"soccer/eng.1","esp.1":"soccer/esp.1","ita.1":"soccer/ita.1","ger.1":"soccer/ger.1","fra.1":"soccer/fra.1","usa.1":"soccer/usa.1","uefa.champions":"soccer/uefa.champions"}
+        lgs={"eng.1":"soccer/eng.1","esp.1":"soccer/esp.1","ita.1":"soccer/ita.1","ger.1":"soccer/ger.1","fra.1":"soccer/fra.1","usa.1":"soccer/usa.1","uefa.champions":"soccer/uefa.champions","ksa.1":"soccer/ksa.1"}
     meta={"updated":now,"leagues":{}}
     for k,p in lgs.items():
         if sport=="nfl": b=get(f"https://site.api.espn.com/apis/site/v2/sports/{p}/scoreboard")

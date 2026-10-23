@@ -8,7 +8,7 @@
 <div class="two"><div class="card"><h2>🏆 Table</h2><div id="stand"></div></div><div class="card"><h2>📰 Headlines</h2><div id="news"></div></div></div>
 <footer>Sports Labs model with public fixtures, tables, news, sportsbook lines and kickoff forecasts. Not betting advice. 21+ only; if you or someone you know has a gambling problem, call 1-800-GAMBLER.<br>Soccer Hub · A <a href="https://sportslabshq.com/">Sports Labs</a> Product · © 2026 Sports Labs</footer></div>
 <script>
-window.HUB={short:"soccer",recSport:["soccer"],leagues:[["eng.1","Premier League"],["esp.1","LALIGA"],["ita.1","Serie A"],["ger.1","Bundesliga"],["fra.1","Ligue 1"],["uefa.champions","Champions League"],["usa.1","MLS"]],
+window.HUB={short:"soccer",recSport:["soccer"],leagues:[["eng.1","Premier League"],["esp.1","LALIGA"],["ita.1","Serie A"],["ger.1","Bundesliga"],["fra.1","Ligue 1"],["uefa.champions","Champions League"],["usa.1","MLS"],["ksa.1","Saudi Pro League"]],
 cols:[["rank","#"],["gamesPlayed","GP"],["wins","W"],["ties","D"],["losses","L"],["pointDifferential","GD"],["points","Pts"]],
 loadExtra:async()=>{const g=await j(BL+"data/games_soccer.json",[]);const m={};(g||[]).forEach(x=>m[x.id]=x);return {m}},
 extra:(g,X)=>{const o=[],x=(X.m||{})[g.id],pos={};(D.standings||[]).forEach(r=>pos[r.team]=r.st.rank);

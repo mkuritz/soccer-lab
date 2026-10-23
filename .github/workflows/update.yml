@@ -3,7 +3,7 @@ on:
   schedule:
     - cron: "10 10 * * *"        # 6:10 AM ET daily: fixtures, tables, news
     - cron: "40 15 * * *"        # 11:40 AM ET daily backup
-    - cron: "*/30 11-23 * * 0,1,5,6" # match windows (Europe Fri/Sat/Sun/Mon + MLS)
+    - cron: "*/30 11-23 * * 0,1,4,5,6" # match windows (Europe Fri/Sat/Sun/Mon + MLS + Saudi Thu)
     - cron: "*/30 0-3 * * 0,1,4" # MLS late finishes (UTC next day)
     - cron: "*/30 16-21 * * 2,3" # Champions League Tue/Wed
   workflow_dispatch:
