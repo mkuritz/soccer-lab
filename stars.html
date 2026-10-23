@@ -14,4 +14,4 @@ function stars(){if(!W){$("stars").innerHTML="";return}const R=W.rows.slice().so
  <div class="mut" style="padding:6px 0">${esc(W.criteria.note)}. Auto-add: ${W.criteria.min_apps}+ apps, ${W.criteria.min_starts}+ starts, ${W.criteria.goals_per_app}+ goals/app, ${W.criteria.ga_per_app}+ G+A/app, ${W.criteria.sot_per_app}+ SOT/app.</div></div>`;
  $("stars").querySelectorAll("th[data-k]").forEach(t=>t.onclick=()=>{WS=t.dataset.k;stars()})}
 fetch("https://betlab.sportslabshq.com/data/star_watch.json?t="+Date.now()).then(r=>r.json()).then(j=>{W=j;stars()}).catch(()=>{});
-</script><script src="navcfg.js"></script><script src="side.js"></script></body></html>
+</script><script src="sl-sports.js"></script><script src="navcfg.js"></script><script src="side.js"></script></body></html>
