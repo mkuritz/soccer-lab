@@ -18,6 +18,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - run: python scripts/fetch.py soccer
+      - run: python scripts/scorers.py || echo 'scorers failed, keeping last file'
         env:
           SL_BACKUP_KEY: ${{ secrets.SL_BACKUP_KEY }}
       - run: |
