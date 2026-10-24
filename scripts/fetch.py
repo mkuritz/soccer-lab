@@ -5,11 +5,13 @@ def get(u):
     try: return json.load(urllib.request.urlopen(urllib.request.Request(u,headers=UA),timeout=25))
     except Exception as e: print("fail",u,e); return None
 def slim_board(j):
-    out=[]
+    out=[]; seen=set()
     for e in (j or {}).get("events",[]):
+        if e["id"] in seen: continue
+        seen.add(e["id"])
         c=e["competitions"][0]; t={x["homeAway"]:x for x in c["competitors"]}
         if "home" not in t: continue
-        def side(x): return {"abbr":x["team"].get("abbreviation"),"name":x["team"].get("displayName"),"logo":x["team"].get("logo"),
+        def side(x): return {"id":x["team"].get("id"),"abbr":x["team"].get("abbreviation"),"name":x["team"].get("displayName"),"logo":x["team"].get("logo"),
              "score":x.get("score"),"record":(x.get("records") or [{}])[0].get("summary"),"form":x.get("form")}
         o=(c.get("odds") or [{}])[0] or {}
         out.append({"id":e["id"],"date":e["date"],"name":e.get("shortName"),"status":c["status"]["type"].get("shortDetail"),
@@ -50,7 +52,7 @@ def main(sport):
     if sport=="nfl":
         lgs={"nfl":"football/nfl"}
     else:
-        lgs={"eng.1":"soccer/eng.1","esp.1":"soccer/esp.1","ita.1":"soccer/ita.1","ger.1":"soccer/ger.1","fra.1":"soccer/fra.1","usa.1":"soccer/usa.1","uefa.champions":"soccer/uefa.champions","ksa.1":"soccer/ksa.1"}
+        lgs={"eng.1":"soccer/eng.1","esp.1":"soccer/esp.1","ita.1":"soccer/ita.1","ger.1":"soccer/ger.1","fra.1":"soccer/fra.1","usa.1":"soccer/usa.1","mex.1":"soccer/mex.1","uefa.champions":"soccer/uefa.champions","ksa.1":"soccer/ksa.1"}
     meta={"updated":now,"leagues":{}}
     for k,p in lgs.items():
         if sport=="nfl": b=get(f"https://site.api.espn.com/apis/site/v2/sports/{p}/scoreboard")
@@ -60,6 +62,11 @@ def main(sport):
                 dd=(datetime.date.today()+datetime.timedelta(days=i)).strftime("%Y%m%d")
                 x=get(f"https://site.api.espn.com/apis/site/v2/sports/{p}/scoreboard?dates={dd}"); okc+=x is not None; x=x or {}
                 b["events"]+=x.get("events",[]); b.setdefault("leagues",x.get("leagues")); b.setdefault("season",x.get("season"))
+            if not b["events"]:
+                for i in range(8, 15):
+                    dd=(datetime.date.today()+datetime.timedelta(days=i)).strftime("%Y%m%d")
+                    x=get(f"https://site.api.espn.com/apis/site/v2/sports/{p}/scoreboard?dates={dd}"); okc+=x is not None; x=x or {}
+                    b["events"]+=x.get("events",[]); b.setdefault("leagues",x.get("leagues")); b.setdefault("season",x.get("season"))
             if not okc: b=None
         n=get(f"https://site.api.espn.com/apis/site/v2/sports/{p}/news")
         s=get(f"https://site.api.espn.com/apis/v2/sports/{p}/standings")
@@ -80,7 +87,7 @@ def main(sport):
             except Exception as e: print("backup failed",k,type(e).__name__)
         d={"updated":now,"games":games,"news":news_neutral(slim_news(n),"t","desc"),"standings":slim_stand(s),
            "season":((b or {}).get("season") or {}).get("year"),"week":((b or {}).get("week") or {}).get("number"),
-           "league":((b or {}).get("leagues") or [{}])[0].get("name")}
+           "league":((b or {}).get("leagues") or [{}])[0].get("name") or k}
         if d["games"] or d["standings"]:
             json.dump(d,open(f"data/{k}.json","w"),separators=(",",":")); meta["leagues"][k]={"name":d["league"],"games":len(d["games"])}
     json.dump(meta,open("data/meta.json","w"))
