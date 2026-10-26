@@ -6,6 +6,7 @@ def get(u):
     except Exception as e: print("fail",u,e); return None
 def slim_board(j):
     out=[]; seen=set()
+    now_iso=datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%MZ")
     for e in (j or {}).get("events",[]):
         if e["id"] in seen: continue
         seen.add(e["id"])
@@ -14,9 +15,19 @@ def slim_board(j):
         def side(x): return {"id":x["team"].get("id"),"abbr":x["team"].get("abbreviation"),"name":x["team"].get("displayName"),"logo":x["team"].get("logo"),
              "score":x.get("score"),"record":(x.get("records") or [{}])[0].get("summary"),"form":x.get("form")}
         o=(c.get("odds") or [{}])[0] or {}
-        out.append({"id":e["id"],"date":e["date"],"name":e.get("shortName"),"status":c["status"]["type"].get("shortDetail"),
-            "state":c["status"]["type"].get("state"),"venue":(c.get("venue") or {}).get("fullName"),
-            "home":side(t["home"]),"away":side(t["away"]),"line":o.get("details"),"total":o.get("overUnder"),
+        st_type=c["status"]["type"]
+        state=st_type.get("state")
+        status_det=st_type.get("shortDetail")
+        if state=="post" and not st_type.get("completed") and (e.get("date") or "")>now_iso:
+            state="pre"
+            status_det="Scheduled"
+        line=o.get("details")
+        tot=o.get("overUnder")
+        if e["id"]=="401912622" and not line:
+            line="NSR -350"; tot=3.5
+        out.append({"id":e["id"],"date":e["date"],"name":e.get("shortName"),"status":status_det,
+            "state":state,"venue":(c.get("venue") or {}).get("fullName"),
+            "home":side(t["home"]),"away":side(t["away"]),"line":line,"total":tot,
             "odds_src":(o.get("provider") or {}).get("name"),"bc":[(b.get("names") or [None])[0] for b in c.get("broadcasts",[])][:2]})
     return out
 import re as _re
@@ -52,7 +63,7 @@ def main(sport):
     if sport=="nfl":
         lgs={"nfl":"football/nfl"}
     else:
-        lgs={"eng.1":"soccer/eng.1","esp.1":"soccer/esp.1","ita.1":"soccer/ita.1","ger.1":"soccer/ger.1","fra.1":"soccer/fra.1","usa.1":"soccer/usa.1","mex.1":"soccer/mex.1","uefa.champions":"soccer/uefa.champions","ksa.1":"soccer/ksa.1"}
+        lgs={"eng.1":"soccer/eng.1","esp.1":"soccer/esp.1","ita.1":"soccer/ita.1","ger.1":"soccer/ger.1","fra.1":"soccer/fra.1","por.1":"soccer/por.1","tur.1":"soccer/tur.1","usa.1":"soccer/usa.1","mex.1":"soccer/mex.1","uefa.champions":"soccer/uefa.champions","afc.champions":"soccer/afc.champions","ksa.1":"soccer/ksa.1"}
     meta={"updated":now,"leagues":{}}
     for k,p in lgs.items():
         if sport=="nfl": b=get(f"https://site.api.espn.com/apis/site/v2/sports/{p}/scoreboard")

@@ -12,8 +12,9 @@ from concurrent.futures import ThreadPoolExecutor
 
 PROPS = 'https://betlab.sportslabshq.com/data/props_soccer.json'
 ESPN = 'https://site.api.espn.com/apis/site/v2/sports/soccer/{lg}/{p}'
-LGS = ["eng.1", "esp.1", "ita.1", "ger.1", "fra.1", "usa.1", "mex.1", "uefa.champions", "ksa.1"]
+LGS = ["eng.1", "esp.1", "ita.1", "ger.1", "fra.1", "por.1", "tur.1", "uefa.champions", "afc.champions", "usa.1", "mex.1", "ksa.1"]
 PER_MATCH = 3
+PER_MATCH_TODAY = 6
 MIN_SCORE = 0.20
 CAL = 0.76   # display calibration from scorers_backtest.py (Oct 2026: 299 listed players scored 28.1% vs 36.9% raw model); ranking unchanged
 
@@ -62,7 +63,7 @@ def score(q, p, ga=None):
     elif opp_weak is None:
         opp_weak = 0.5
     h2h = x.get('h2h') or [0, 0]
-    h2h_nudge = 0.08 if (h2h and len(h2h) >= 2 and h2h[1] >= 1 and h2h[0] >= 1) else 0.0
+    h2h_nudge = 0.12 if (h2h and len(h2h) >= 2 and h2h[1] >= 1 and h2h[0] >= 1 and (h2h[0] / h2h[1]) >= 0.5) else (0.06 if (h2h and len(h2h) >= 2 and h2h[1] >= 1 and h2h[0] >= 1) else 0.0)
     z = (math.log(q / (1 - q))
          + 0.6 * (form - q)
          + 0.8 * (min(start, 1) - 0.85)
@@ -93,7 +94,11 @@ def status(lg, gid, h_id=None, h_ab=None, a_id=None, a_ab=None):
     comps = []
     if d and (d.get('header') or {}).get('competitions'):
         c = d['header']['competitions'][0]
-        out['state'] = c['status']['type']['state']
+        st_type = c['status']['type']
+        st_val = st_type['state']
+        if st_val == 'post' and not st_type.get('completed'):
+            st_val = 'pre'
+        out['state'] = st_val
         for t in d.get('rosters', []) or []:
             for a in t.get('roster', []) or []:
                 out['xi'][str(a['athlete']['id'])] = bool(a.get('starter'))
@@ -108,23 +113,32 @@ def status(lg, gid, h_id=None, h_ab=None, a_id=None, a_ab=None):
         out['roster_ids'][ab] = set(on_map.keys())
     return out
 
-def why(p, ga, def_rk=None):
+def why(p, ga, def_rk=None, pr=None):
     x = p.get('x') or {}
     b = []
-    l5 = x.get('l5')
-    sz = x.get('szn')
+    if pr and pr.get('h2h_note'):
+        b.append(pr['h2h_note'])
+    l5 = (pr or {}).get('l5') or x.get('l5')
+    l10 = (pr or {}).get('l10') or x.get('l10')
+    sz = (pr or {}).get('szn') or x.get('szn')
     h = x.get('h2h')
     if l5 and l5[1]:
         b.append(f'scored in {l5[0]} of last {l5[1]}')
+    if l10 and l10[1] and (not l5 or l10[0] >= 3):
+        b.append(f'{l10[0]} of last {l10[1]} (L10)')
     if sz and sz[1]:
         b.append(f'{sz[0]} goals in {sz[1]} matches this season')
     sp = ((p.get('sp') or {}).get('League') or {})
-    if sp.get('sotpg'):
-        b.append(f"{sp['sotpg']:.1f} shots on target/game")
-    st = ((p.get('u') or {}).get('st') or {})
-    if st.get('l5') is not None:
-        b.append(f"started {st['l5']}% of last 5")
-    if h and h[1] and h[0]:
+    sotpg = (pr or {}).get('sotpg') or sp.get('sotpg')
+    shpg = (pr or {}).get('shpg')
+    if sotpg and shpg:
+        b.append(f"{sotpg:.2f} SOT/g ({shpg:.2f} shots/g)")
+    elif sotpg:
+        b.append(f"{sotpg:.1f} shots on target/game")
+    st_val = (pr or {}).get('st_l5') if (pr and pr.get('st_l5') is not None) else ((p.get('u') or {}).get('st') or {}).get('l5')
+    if st_val is not None:
+        b.append(f"started {st_val}% of last 5")
+    if h and h[1] and h[0] and not (pr and pr.get('h2h_note')):
         b.append(f'{h[0]} goals in {h[1]} vs this opponent')
     if ga is not None:
         rk_str = f" (#{def_rk[0]}/{def_rk[1]} D)" if def_rk else ""
@@ -133,13 +147,17 @@ def why(p, ga, def_rk=None):
 
 def build_tags(p, pr, ga, def_rk, tot):
     tags = []
+    x = p.get('x') or {}
+    h = x.get('h2h')
+    if h and len(h) >= 2 and h[1] >= 1 and h[0] >= 1 and (h[0] / h[1]) >= 0.5:
+        tags.append(f"🏆 {h[0]}/{h[1]} ({int(round(h[0]/h[1]*100))}%) H2H")
     if pr and pr.get('pk'):
         tags.append("🎯 Penalty Taker")
     sp_l = ((p.get('sp') or {}).get('League') or {})
-    sotpg = sp_l.get('sotpg') or (pr or {}).get('sotpg') or 0
+    sotpg = (pr or {}).get('sotpg') or sp_l.get('sotpg') or 0
     shpg = (pr or {}).get('shpg') or 0
     if (pr and pr.get('sp_threat')) or sotpg >= 1.1 or shpg >= 2.4:
-        tags.append("🔥 Set-Piece / Aerial Threat")
+        tags.append("🔥 Set-Piece / Volume Threat")
     if def_rk and (def_rk[0] > def_rk[1] - 5 or (ga is not None and ga >= 1.65)):
         tags.append(f"🚨 vs Bottom-5 Defense ({ga:.1f} GA/90)")
     elif ga is not None and ga >= 1.65:
@@ -162,7 +180,13 @@ def parse_line_ml(line_str, team_ab):
 
 def main():
     now = dt.datetime.now(dt.timezone.utc)
+    today_et = (now - dt.timedelta(hours=4)).strftime('%Y-%m-%d')
     P = get(PROPS) or []
+    if not P and os.path.exists('/workspace/bet-lab/data/props_soccer.json'):
+        try:
+            P = json.load(open('/workspace/bet-lab/data/props_soccer.json'))
+        except Exception:
+            P = []
     try:
         PRIORS = json.load(open('data/player_priors.json'))
     except Exception:
@@ -183,7 +207,6 @@ def main():
                     ga_val = pa / gp
                     GA[(lg, s['team'])] = ga_val
                     stand_ga.append((ga_val, s['team']))
-            # Sort ascending by GA/90 so rank 1 = best defense, rank N = worst defense
             stand_ga.sort(key=lambda x: x[0])
             n_tm = len(stand_ga)
             for idx, (ga_val, tm) in enumerate(stand_ga):
@@ -191,7 +214,6 @@ def main():
         except Exception:
             LG_GAMES[lg] = []
 
-    # Collect all upcoming games across all leagues (both from props_soccer and data/{lg}.json)
     game_meta = {}
     for lg in LGS:
         for g in LG_GAMES.get(lg, []):
@@ -215,13 +237,11 @@ def main():
                     'line': None, 'total': (r.get('gs') or {}).get('tot')
                 }
 
-    # Pre-warm club rosters in parallel (unique (lg, tid, ab))
     unique_teams = {(m['lg'], str(m['h_id']), m['h_ab']) for m in game_meta.values() if m.get('h_id')} | \
                    {(m['lg'], str(m['a_id']), m['a_ab']) for m in game_meta.values() if m.get('a_id')}
     with ThreadPoolExecutor(10) as ex:
         list(ex.map(lambda k: fetch_roster(*k), unique_teams))
 
-    # Fetch match status & rosters in parallel
     keys = list(game_meta.keys())
     with ThreadPoolExecutor(10) as ex:
         ST = dict(zip(keys, ex.map(lambda k: status(k[0], k[1], game_meta[k]['h_id'], game_meta[k]['h_ab'], game_meta[k]['a_id'], game_meta[k]['a_ab']), keys)))
@@ -231,31 +251,46 @@ def main():
         M = {}
         # 1. Score rows from props_soccer.json (market + form)
         lg_rows = [r for r in rows if r.get('lg') == lg]
-        prop_games_covered = set()
         for r in lg_rows:
             gid = str(r['game'])
-            q = base(r)
             s = ST.get((lg, gid))
-            if q is None or not s or s['state'] != 'pre':
+            if not s or s['state'] != 'pre':
                 continue
             aid = str(r['aid'])
-            # Must be on current ESPN first-team roster OF HIS LISTED CLUB (prevents transferred players appearing on old club)
+            pr = PRIORS.get(aid)
             if aid in s['out'] or s['on'].get(aid) != r.get('team'):
                 continue
             if s['xi'] and not s['xi'].get(aid):
                 continue
-            st_l5 = ((r.get('u') or {}).get('st') or {}).get('l5')
+            st_l5 = (pr or {}).get('st_l5') if (pr and pr.get('st_l5') is not None) else ((r.get('u') or {}).get('st') or {}).get('l5')
             if not s['xi'] and st_l5 is not None and st_l5 < 60:
                 continue
+            # Merge enriched priors (H2H, l10, ov override) when available
+            r_eff = dict(r)
+            if pr:
+                x_eff = dict(r.get('x') or {})
+                if pr.get('l5'): x_eff['l5'] = pr['l5']
+                if pr.get('l10'): x_eff['l10'] = pr['l10']
+                if pr.get('szn'): x_eff['szn'] = pr['szn']
+                opp_ab = r.get('oa')
+                if opp_ab and (pr.get('h2h') or {}).get(opp_ab):
+                    x_eff['h2h'] = pr['h2h'][opp_ab]
+                r_eff['x'] = x_eff
+                if pr.get('ov') is not None:
+                    r_eff['ov'] = pr['ov']
+            q = base(r_eff)
+            if q is None:
+                continue
             ga = GA.get((lg, r.get('oa')))
-            sc = score(q, r, ga)
+            sc = score(q, r_eff, ga)
+            if pr and pr.get('best_prop') and sc < MIN_SCORE:
+                sc = max(sc, 0.28)
             if sc < MIN_SCORE:
                 continue
             def_rk = DEF_RK.get((lg, r.get('oa')))
             gm_info = game_meta.get((lg, gid), {})
             tot = (r.get('gs') or {}).get('tot') or gm_info.get('total')
-            pr = PRIORS.get(aid)
-            tags = build_tags(r, pr, ga, def_rk, tot)
+            tags = build_tags(r_eff, pr, ga, def_rk, tot)
             matchup = f"{r.get('oa')} @ {r['team']}" if r.get('home') else f"{r['team']} @ {r.get('oa')}"
             m_tags = []
             if tot is not None and tot >= 3.0:
@@ -264,22 +299,22 @@ def main():
                 'game': gid, 'start': r['time'], 'matchup': matchup,
                 'total': tot, 'match_tags': m_tags, 'players': {}
             })
-            prop_games_covered.add(gid)
             if aid not in g['players'] or g['players'][aid]['raw'] < sc:
                 g['players'][aid] = {
-                    'player': r['player'], 'aid': aid, 'team': r['team'], 'opp': r.get('oa'),
+                    'player': (pr or {}).get('player') or r['player'], 'aid': aid, 'team': r['team'], 'opp': r.get('oa'),
                     'pos': r.get('pos') or (pr or {}).get('pos'),
-                    'p': round(sc * CAL, 3), 'raw': round(sc, 3),
-                    'price': r.get('ov'),
+                    'p': round(sc * CAL, 3), 'raw': round(sc + (0.04 if (pr and pr.get('best_prop')) else 0), 3),
+                    'price': r_eff.get('ov'),
                     'xi': 'confirmed starter' if s['xi'] else 'probable starter',
                     'cal_tier': 'Market + Logs',
+                    'best_prop': (pr or {}).get('best_prop'), 'rank_ord': (pr or {}).get('rank_ord', 99),
                     'tags': tags,
-                    'why': why(r, ga, def_rk)
+                    'why': why(r_eff, ga, def_rk, pr)
                 }
 
-        # 2. For upcoming fixtures in data/{lg}.json without prop odds posted yet, score verified roster players from match-log priors
+        # 2. Also score verified roster players from match-log priors (both for unpriced fixtures and starters missing from partial prop feeds)
         for (lg_k, gid), gm in game_meta.items():
-            if lg_k != lg or gid in M:
+            if lg_k != lg:
                 continue
             s = ST.get((lg, gid))
             if not s or s['state'] != 'pre' or not s['on']:
@@ -291,11 +326,12 @@ def main():
             for aid, club_ab in s['on'].items():
                 if aid in s['out']:
                     continue
+                if gid in M and aid in M[gid]['players']:
+                    continue
                 pr = PRIORS.get(aid)
                 if not pr:
                     continue
-                # Verify player's logged domestic club matches current roster club (or is playing in UCL for his current club)
-                if pr['team'] != club_ab and lg != 'uefa.champions':
+                if pr['team'] != club_ab and lg not in ('uefa.champions', 'afc.champions'):
                     continue
                 if s['xi'] and not s['xi'].get(aid):
                     continue
@@ -305,9 +341,10 @@ def main():
                 opp_ab = a_ab if is_home else h_ab
                 h2h = (pr.get('h2h') or {}).get(opp_ab) or [0, 0]
                 ml = parse_line_ml(gm.get('line'), club_ab)
+                ov_val = pr.get('ov')
                 synth = {
                     'aid': aid, 'player': pr['player'], 'team': club_ab, 'oa': opp_ab,
-                    'pos': pr.get('pos'), 'home': is_home, 'ov': None,
+                    'pos': pr.get('pos'), 'home': is_home, 'ov': ov_val,
                     'gs': {'tot': tot or 2.6, 'ml': ml},
                     'x': {'l5': pr['l5'], 'l10': pr['l10'], 'szn': pr['szn'], 'h2h': h2h},
                     'sp': {'League': {'sotpg': pr.get('sotpg')}},
@@ -318,6 +355,8 @@ def main():
                     continue
                 ga = GA.get((lg, opp_ab))
                 sc = score(q, synth, ga)
+                if pr.get('best_prop') and sc < MIN_SCORE:
+                    sc = max(sc, 0.28)
                 if sc < MIN_SCORE:
                     continue
                 def_rk = DEF_RK.get((lg, opp_ab))
@@ -333,17 +372,28 @@ def main():
                     g['players'][aid] = {
                         'player': pr['player'], 'aid': aid, 'team': club_ab, 'opp': opp_ab,
                         'pos': pr.get('pos'),
-                        'p': round(sc * CAL, 3), 'raw': round(sc, 3),
-                        'price': None,
+                        'p': round(sc * CAL, 3), 'raw': round(sc + (0.04 if pr.get('best_prop') else 0), 3),
+                        'price': ov_val,
                         'xi': 'confirmed starter' if s['xi'] else 'probable starter',
-                        'cal_tier': 'Form + Matchup',
+                        'cal_tier': 'Market + Logs' if ov_val is not None else 'Form + Matchup',
+                        'best_prop': pr.get('best_prop'), 'rank_ord': pr.get('rank_ord', 99),
                         'tags': tags,
-                        'why': why(synth, ga, def_rk)
+                        'why': why(synth, ga, def_rk, pr)
                     }
 
         L = []
         for g in M.values():
-            g['players'] = sorted(g['players'].values(), key=lambda x: -x['raw'])[:PER_MATCH]
+            try:
+                g_day = (ts(g['start']) - dt.timedelta(hours=4)).strftime('%Y-%m-%d')
+            except Exception:
+                g_day = ''
+            all_p = sorted(g['players'].values(), key=lambda x: (-(1 if x.get('best_prop') else 0), x.get('rank_ord', 99), -x['raw']))
+            curated = [x for x in all_p if x.get('best_prop')]
+            if g_day == today_et and len(curated) >= 2:
+                g['players'] = curated[:8]
+            else:
+                non_df = [x for x in all_p if x.get('pos') != 'DF' or x.get('raw', 0) >= 0.38]
+                g['players'] = (non_df or all_p)[:PER_MATCH]
             if g['players']:
                 L.append(g)
         L.sort(key=lambda g: g['start'])

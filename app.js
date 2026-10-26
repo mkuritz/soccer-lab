@@ -4,9 +4,11 @@ const CFG=window.HUB,$=id=>document.getElementById(id),esc=s=>String(s??"").repl
 const BL="https://betlab.sportslabshq.com/";
 const j=(u,d)=>fetch(u+(u.includes("?")?"&":"?")+"t="+Date.now()).then(r=>r.ok?r.json():d).catch(()=>d);
 const et=t=>t?new Date(t).toLocaleString("en-US",{timeZone:"America/New_York",weekday:"short",month:"short",day:"numeric",hour:"numeric",minute:"2-digit"})+" ET":"";
+const etDay=t=>t?new Date(t).toLocaleDateString("en-CA",{timeZone:"America/New_York"}):"";
+const todayET=()=>new Date().toLocaleDateString("en-CA",{timeZone:"America/New_York"});
 const ago=t=>{if(!t)return"";const m=Math.round((Date.now()-new Date(t))/60000);return m<60?m+" min ago":m<1440?Math.round(m/60)+" h ago":Math.round(m/1440)+" d ago"};
 const ALL=CFG.leagues.length>1;if(ALL&&CFG.leagues[0][0]!="all")CFG.leagues.unshift(["all","All"]);
-let LG=CFG.leagues[0][0],MF="",D={},EX={},REC=[],ALG={},SC=null,STAND_ALL={},LSG={};
+let LG=CFG.leagues[0][0],MF="",SC_VIEW="today",D={},EX={},REC=[],ALG={},SC=null,STAND_ALL={},LSG={};
 function applyLiveOverlay(games){
  (games||[]).forEach(g=>{
   const lv=LSG[(CFG.short||"soccer")+"|"+g.id];
@@ -64,8 +66,9 @@ function story(g){const h=g.home,a=g.away,out=[];
 }
 
 function badgeCls(t){
+ if(/H2H/i.test(t))return"sbadge pk";
  if(/Penalty/i.test(t))return"sbadge pk";
- if(/Set-Piece|Aerial/i.test(t))return"sbadge sp";
+ if(/Set-Piece|Aerial|Volume/i.test(t))return"sbadge sp";
  if(/Bottom-5|Sieve|Defense/i.test(t))return"sbadge sv";
  if(/High-Total/i.test(t))return"sbadge ht";
  return"sbadge cal";
@@ -73,7 +76,11 @@ function badgeCls(t){
 
 function renderRibbon(G){
  const el=$("mrib");if(!el)return;
- const up=G.filter(g=>g.state!="post").slice(0,24);
+ const td=todayET();
+ const up=G.filter(g=>g.state!="post").sort((a,b)=>{
+  const at=etDay(a.date)==td?0:1,bt=etDay(b.date)==td?0:1;
+  return at!=bt?at-bt:(a.date<b.date?-1:1);
+ }).slice(0,24);
  if(!up.length){el.innerHTML="";return}
  el.innerHTML=`<button data-mf="" class="${!MF?"on":""}">All Matches (${up.length})</button>`+up.map(g=>{
   const mu=`${g.away.abbr} @ ${g.home.abbr}`;
@@ -136,6 +143,28 @@ function matchQuickLegs(g){
  }).join("")}</div>`;
 }
 
+function takeByLeagueHTML(){
+ if(!SC||!SC.leagues)return"";
+ const td=todayET();
+ const nm=k=>(CFG.leagues.find(l=>l[0]==k)||[,k])[1];
+ const allKeys=CFG.leagues.filter(l=>l[0]!="all").map(l=>l[0]);
+ const ks=LG=="all"?allKeys:[LG];
+ const blocks=[];
+ ks.forEach(k=>{
+  let ms=((SC.leagues[k]||{}).matches||[]).filter(m=>etDay(m.start)==td&&(!MF||String(m.game)==MF));
+  if(!ms.length)return;
+  const rows=ms.flatMap(m=>(m.players||[]).filter(p=>p.best_prop).slice(0,3).map(p=>Object.assign({matchup:m.matchup,start:m.start,game:m.game},p)));
+  const useRows=rows.length?rows:ms.flatMap(m=>(m.players||[]).slice(0,2).map(p=>Object.assign({matchup:m.matchup,start:m.start,game:m.game},p)));
+  if(!useRows.length)return;
+  blocks.push(`<div style="margin-bottom:10px"><div style="display:flex;align-items:center;gap:8px;padding:4px 8px;margin-bottom:5px;background:#162642;border-left:3px solid var(--acc);border-radius:5px;font-weight:800;font-size:12.5px"><span>⚽ ${esc(nm(k))}</span><span class="mut sm" style="font-weight:600">${ms.length} ${ms.length==1?"match":"matches"} today</span></div>`+useRows.map(p=>{
+   const propTxt=p.best_prop||`Anytime Goal (${Math.round(p.p*100)}% model)`;
+   const why0=(p.why&&p.why[0])?p.why[0]:"";
+   return `<div class="tk" style="padding:4px 6px"><span class="pill">HIGHLIGHTED</span> <b>${esc(p.player)}</b> <span class="mut">(${esc(p.team)} · ${esc(p.matchup)})</span> <span class="sbadge pk">🎯 ${esc(propTxt)}</span> <span class="mut sm">${esc(why0)} · ${et(p.start)}</span></div>`;
+  }).join("")+`</div>`);
+ });
+ return blocks.join("");
+}
+
 function render(){
  const G0=(D.games||[]).slice().sort((x,y)=>x.date<y.date?-1:1);
  renderRibbon(G0);
@@ -143,7 +172,9 @@ function render(){
  $("upd").innerHTML=`Data updated ${ago(D.updated)} (${et(D.updated)}) · ${esc(D.league||"")}${D.week?" · Week "+D.week:""} ${D.season||""}`;
  const rec=REC.filter(r=>CFG.recSport.includes(r.sport)&&(LG=="all"||recLg(r)==LG)&&(!MF||String(r.game||(r.ref||{}).game||"")==MF));
  const lgName=(CFG.leagues.find(l=>l[0]==LG)||[,""])[1];
- $("take").innerHTML=rec.length?rec.slice(0,10).map(r=>`<div class="tk"><span class="pill">${r.lh?"PRE-GAME LIST HIT · #"+r.rank+" most likely":r.gp?(/Goal|Assist/.test(r.market)?"GOAL HIGHLIGHT":"PROBABLE PLAY")+" · "+esc(r.tier.toUpperCase()):"SPORTS LABS HIGHLIGHTED"}</span> <b>${esc(r.title)}</b>${r.lh?` <span class="mut">our ${Math.round(r.ours*100)}% vs book ${Math.round(r.book*100)}% (${r.price>0?"+"+r.price:r.price}) pre-game</span>`:""}${r.gp?` <b>${r.price>0?"+"+r.price:r.price}</b> <span class="mut">${esc(r.book)} · our chance ${Math.round(r.p*100)}% vs ${Math.round(r.nv*100)}% no-vig · ${esc(r.xi)} · ${esc(r.season)}</span>`:""} <span class="mut">${et(r.start)}</span>${r.lh?` <b class="lv">✅ ${esc(r.lh)}</b>`:""}${window.LR&&r.gp&&r.aid?LR.tag("soccer",r.aid,r.market,null,r.player,"",r.start):""}${window.LR&&!r.gp&&!r.lh?LR.tag(r.sport,(r.ref||{}).aid||"",r.market,(r.ref||{}).line,(r.ref||{}).player||r.title.replace(/ (anytime|over|under|to score).*$/i,""),"",r.start):""}</div>`).join("")+`<a href="${BL}sharp.html">All Highlighted in Bet Lab →</a>`:LG!="all"?`<div class="mut">No other Highlighted ${esc(lgName)} highlights today${scN(LG)?" (see Likely Scorers below)":""}. Highlight <b>All</b> for every league. <a href="${BL}sharp.html">Highlighted in Bet Lab →</a></div>`:`<div class="mut">No Highlighted ${CFG.short} highlights have cleared our bar right now. When they do, they show here. <a href="${BL}sharp.html">Highlighted in Bet Lab →</a></div>`;
+ const recHTML=rec.length?rec.slice(0,10).map(r=>`<div class="tk"><span class="pill">${r.lh?"PRE-GAME LIST HIT · #"+r.rank+" most likely":r.gp?(/Goal|Assist/.test(r.market)?"GOAL HIGHLIGHT":"PROBABLE PLAY")+" · "+esc(r.tier.toUpperCase()):"SPORTS LABS HIGHLIGHTED"}</span> <b>${esc(r.title)}</b>${r.lh?` <span class="mut">our ${Math.round(r.ours*100)}% vs book ${Math.round(r.book*100)}% (${r.price>0?"+"+r.price:r.price}) pre-game</span>`:""}${r.gp?` <b>${r.price>0?"+"+r.price:r.price}</b> <span class="mut">${esc(r.book)} · our chance ${Math.round(r.p*100)}% vs ${Math.round(r.nv*100)}% no-vig · ${esc(r.xi)} · ${esc(r.season)}</span>`:""} <span class="mut">${et(r.start)}</span>${r.lh?` <b class="lv">✅ ${esc(r.lh)}</b>`:""}${window.LR&&r.gp&&r.aid?LR.tag("soccer",r.aid,r.market,null,r.player,"",r.start):""}${window.LR&&!r.gp&&!r.lh?LR.tag(r.sport,(r.ref||{}).aid||"",r.market,(r.ref||{}).line,(r.ref||{}).player||r.title.replace(/ (anytime|over|under|to score).*$/i,""),"",r.start):""}</div>`).join(""):"";
+ const byLgTake=takeByLeagueHTML();
+ $("take").innerHTML=(recHTML+byLgTake)?(recHTML+byLgTake+`<a href="${BL}sharp.html">All Highlighted in Bet Lab →</a>`):LG!="all"?`<div class="mut">No Highlighted ${esc(lgName)} plays for today's slate${scN(LG)?" (see upcoming Likely Scorers below)":""}. Select <b>All</b> for today's highlights across every league. <a href="${BL}sharp.html">Highlighted in Bet Lab →</a></div>`:`<div class="mut">No Highlighted ${CFG.short} plays have cleared our bar right now. When they do, they show here. <a href="${BL}sharp.html">Highlighted in Bet Lab →</a></div>`;
  $("games").innerHTML=G.length?G.map(g=>`<div class="g"><div class="gh"><span class="tm"><img loading="lazy" decoding="async" width="32" height="32" src="${esc(LOGO64(g.away.logo))}" alt="">${esc(g.away.abbr)} ${g.state!="pre"?esc(g.away.score):""}</span><span class="mut">@</span><span class="tm"><img loading="lazy" decoding="async" width="32" height="32" src="${esc(LOGO64(g.home.logo))}" alt="">${esc(g.home.abbr)} ${g.state!="pre"?esc(g.home.score):""}</span><span class="st ${g.state}">${esc(g.status)}</span></div><div class="mut sm">${et(g.date)}${g.venue?" · "+esc(g.venue):""}${g.bc&&g.bc[0]?" · 📺 "+esc(g.bc.filter(Boolean).join(", ")):""}</div>${matchGoalViz(g)}${matchBadges(g)}<ul class="sl">${story(g).map(s=>`<li>${s}</li>`).join("")}</ul>${matchQuickLegs(g)}</div>`).join(""):'<div class="mut">No games in the current window.</div>';
  const S=D.standings||[],grps=[...new Set(S.map(r=>r.grp))];
  $("stand").innerHTML=grps.map(gp=>`<h3>${esc(gp)}</h3><div class="wrap"><table><tr><th>Team</th>${CFG.cols.map(c=>`<th>${c[1]}</th>`).join("")}</tr>${S.filter(r=>r.grp==gp).map(r=>`<tr><td><img class="lg" loading="lazy" decoding="async" width="32" height="32" src="${esc(LOGO64(r.logo))}" alt="">${esc(r.name)}</td>${CFG.cols.map(c=>`<td>${esc(r.st[c[0]]??"")}</td>`).join("")}</tr>`).join("")}</table></div>`).join("")||'<div class="mut">Standings unavailable.</div>';
@@ -155,19 +186,15 @@ function render(){
 }
 
 const scN=l=>SC&&SC.leagues&&SC.leagues[l]?SC.leagues[l].n_players:0;
-function scHTML(){
- if(!SC)return'<div class="mut">Loading…</div>';
- const ks=LG=="all"?Object.keys(SC.leagues):[LG],nm=k=>(CFG.leagues.find(l=>l[0]==k)||[,k])[1];
- let M=ks.flatMap(k=>((SC.leagues[k]||{}).matches||[]).map(m=>Object.assign({lg:k},m))).filter(m=>new Date(m.start)>Date.now()).sort((a,b)=>a.start<b.start?-1:1);
- if(MF)M=M.filter(m=>String(m.game)==MF);
- if(!M.length)return `<div class="mut">Not enough player data yet for upcoming ${esc(LG=="all"?"":nm(LG)+" ")}matches. This fills in once player markets and recent match logs are posted.</div>`;
- const calHdr=`<div style="display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-bottom:10px;padding:7px 10px;background:var(--panel2);border:1px solid var(--line);border-radius:8px;font-size:12px"><span class="sbadge cal">✓ CALIBRATED · ${SC.bt.n} BACKTESTED (${Math.round(SC.bt.hit*100)}% ACTUAL HIT RATE)</span><span class="sbadge pk">✓ FIRST-TEAM ROSTER &amp; STARTER VERIFIED</span><span class="mut sm" style="margin-left:auto">Showing ${M.length} upcoming matches · tap <b>+ Slip</b> to build an SGP or Parlay</span></div>`;
- return calHdr+M.map(m=>`<div class="tk" style="margin-bottom:10px"><div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap"><b>${esc(m.matchup)}</b> <span class="mut">${LG=="all"?esc(nm(m.lg))+" · ":""}${et(m.start)}</span>${(m.match_tags||[]).map(t=>`<span class="${badgeCls(t)}">${esc(t)}</span>`).join("")}</div>${m.players.map(p=>{
+function renderMatchBlock(m,nm){
+ return `<div class="tk" style="margin-bottom:10px"><div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap"><b>${esc(m.matchup)}</b> <span class="mut">${esc(nm(m.lg))} · ${et(m.start)}</span>${(m.match_tags||[]).map(t=>`<span class="${badgeCls(t)}">${esc(t)}</span>`).join("")}</div>${m.players.map(p=>{
   const lid=`s|${m.game}|${p.aid}`;
   const on=SLIP.some(x=>x.id==lid);
-  const legObj={id:lid,game:String(m.game),matchup:m.matchup,kind:"scorer",aid:String(p.aid),label:`${p.player} (${p.team}) Anytime Goal`,team:p.team,opp:p.opp,p:p.p,price:p.price};
-  const tags=(p.tags||[]).slice(0,2).map(t=>`<span class="${badgeCls(t)}">${esc(t)}</span>`).join("");
+  const propShort=p.best_prop?p.best_prop.split("·")[0].trim():"Anytime Goal";
+  const legObj={id:lid,game:String(m.game),matchup:m.matchup,kind:"scorer",aid:String(p.aid),label:`${p.player} (${p.team}) ${propShort}`,team:p.team,opp:p.opp,p:p.p,price:p.price};
+  const tags=(p.tags||[]).slice(0,3).map(t=>`<span class="${badgeCls(t)}">${esc(t)}</span>`).join("");
   const calBadge=p.cal_tier?`<span class="sbadge cal">${esc(p.cal_tier)}</span>`:"";
+  const bestBadge=p.best_prop?`<span class="sbadge pk">🎯 ${esc(p.best_prop)}</span>`:"";
   const maxScale=0.65;
   const ourP=Math.max(0.05,Math.min(maxScale,p.p||0.2));
   const mktRaw=p.price!=null?imp(p.price):null;
@@ -176,8 +203,39 @@ function scHTML(){
   const refLeft=Math.min(97,Math.max(3,Math.round((refP/maxScale)*1000)/10));
   const edgePts=Math.round((p.p-refP)*1000)/10;
   const vizBar=`<div class="sc-viz-bar" title="Our Calibrated Chance ${Math.round(p.p*100)}% vs ${mktRaw!=null?'Book Implied':'Baseline Prior'} ${Math.round(refP*100)}%"><div class="sc-viz-track"><div class="sc-viz-fill" style="width:${ourW}%"></div><div class="sc-viz-tick" style="left:${refLeft}%" title="${mktRaw!=null?'Book Implied':'Prior'}: ${Math.round(refP*100)}%"></div></div><div class="sc-viz-meta"><span class="our">Our <b>${Math.round(p.p*100)}%</b></span><span class="mkt">${mktRaw!=null?'Book Imp':'Prior'} <b>${Math.round(refP*100)}%</b></span>${edgePts>=0.5?`<span class="edg">+${edgePts.toFixed(1)}% Edge</span>`:""}</div></div>`;
-  return `<div class="sc-row"><div style="flex:1;min-width:0"><div><span class="pill">${Math.round(p.p*100)}% TO SCORE</span> <b>${esc(p.player)}</b> <span class="mut">${esc(p.team)}${p.pos?" "+esc(p.pos):""} · ${esc(p.xi)}${p.price!=null?` · Book ${p.price>0?"+"+p.price:p.price}`:` · Fair ${toAm(p.p)}`}</span></div>${vizBar}<div style="margin-top:3px">${calBadge}${tags}</div><div class="mut sm" style="margin-top:2px">${esc(p.why.join(" · "))}</div></div><button type="button" class="slip-btn ${on?"on":""}" data-slip='${esc(JSON.stringify(legObj))}'>${on?"✓ In Slip":"+ Slip"}</button></div>`;
- }).join("")}</div>`).join("")+`<div class="mut sm" style="margin-top:6px">Chances are calibrated to past results: in our backtest, ${SC.bt.n} listed players scored ${Math.round(SC.bt.hit*100)}% of the time. Updated ${ago(SC.updated)}.</div>`;
+  return `<div class="sc-row"><div style="flex:1;min-width:0"><div><span class="pill">${Math.round(p.p*100)}% TO SCORE</span> <b>${esc(p.player)}</b> <span class="mut">${esc(p.team)}${p.pos?" "+esc(p.pos):""} · ${esc(p.xi)}${p.price!=null?` · Book ${p.price>0?"+"+p.price:p.price}`:` · Fair ${toAm(p.p)}`}</span></div>${vizBar}<div style="margin-top:3px">${bestBadge}${calBadge}${tags}</div><div class="mut sm" style="margin-top:2px">${esc(p.why.join(" · "))}</div></div><button type="button" class="slip-btn ${on?"on":""}" data-slip='${esc(JSON.stringify(legObj))}'>${on?"✓ In Slip":"+ Slip"}</button></div>`;
+ }).join("")}</div>`;
+}
+
+function scHTML(){
+ if(!SC)return'<div class="mut">Loading…</div>';
+ const td=todayET();
+ const allKeys=CFG.leagues.filter(l=>l[0]!="all").map(l=>l[0]);
+ const ks=LG=="all"?allKeys:[LG],nm=k=>(CFG.leagues.find(l=>l[0]==k)||[,k])[1];
+ let M=ks.flatMap(k=>((SC.leagues[k]||{}).matches||[]).map(m=>Object.assign({lg:k},m))).filter(m=>new Date(m.start)>Date.now()-7200000).sort((a,b)=>a.start<b.start?-1:1);
+ if(MF)M=M.filter(m=>String(m.game)==MF);
+ if(!M.length)return `<div class="mut">Not enough player data yet for upcoming ${esc(LG=="all"?"":nm(LG)+" ")}matches. This fills in once player markets and recent match logs are posted.</div>`;
+ const todayM=M.filter(m=>etDay(m.start)==td);
+ const effView=(SC_VIEW=="today"&&todayM.length)?SC_VIEW:"all";
+ const showM=effView=="today"?todayM:M;
+ const viewBtns=todayM.length?`<span style="display:inline-flex;gap:5px;margin-left:auto"><button type="button" class="slip-btn ${effView=="today"?"on":""}" data-scv="today">🔥 Today's Slate · By League (${todayM.length})</button><button type="button" class="slip-btn ${effView=="all"?"on":""}" data-scv="all">📆 All Upcoming · By League (${M.length})</button></span>`:`<span class="mut sm" style="margin-left:auto">Showing ${M.length} upcoming matches by league · tap <b>+ Slip</b> to build an SGP or Parlay</span>`;
+ const calHdr=`<div style="display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-bottom:10px;padding:7px 10px;background:var(--panel2);border:1px solid var(--line);border-radius:8px;font-size:12px"><span class="sbadge cal">✓ CALIBRATED · ${SC.bt.n} BACKTESTED (${Math.round(SC.bt.hit*100)}% ACTUAL HIT RATE)</span><span class="sbadge pk">✓ FIRST-TEAM ROSTER &amp; STARTER VERIFIED</span>${viewBtns}</div>`;
+ // Order leagues so leagues with matches today appear first, then by earliest kickoff
+ const lgOrder=ks.slice().sort((a,b)=>{
+  const aTd=todayM.some(m=>m.lg==a)?0:1,bTd=todayM.some(m=>m.lg==b)?0:1;
+  if(aTd!=bTd)return aTd-bTd;
+  const aM=showM.find(m=>m.lg==a),bM=showM.find(m=>m.lg==b);
+  return (aM?aM.start:"9")<(bM?bM.start:"9")?-1:1;
+ });
+ const sections=lgOrder.map(k=>{
+  const lgMs=showM.filter(m=>m.lg==k);
+  if(!lgMs.length)return"";
+  const nPl=lgMs.reduce((s,m)=>s+(m.players||[]).length,0);
+  const tdCnt=lgMs.filter(m=>etDay(m.start)==td).length;
+  const lgHdr=`<div class="lg-sec-hd" style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:7px 11px;margin:12px 0 8px;background:#162642;border:1px solid var(--line);border-left:3px solid var(--acc);border-radius:8px;font-weight:800;font-size:13.5px"><span>⚽ ${esc(nm(k))}${tdCnt?` <span class="sbadge pk" style="margin-left:6px">🔥 ${tdCnt} Today</span>`:""}</span><span class="mut sm" style="font-weight:600">${lgMs.length} ${lgMs.length==1?"match":"matches"} · ${nPl} highlighted hitters</span></div>`;
+  return `<div class="lg-sec" data-lg-sec="${esc(k)}">${lgHdr}${lgMs.map(m=>renderMatchBlock(m,nm)).join("")}</div>`;
+ }).join("");
+ return calHdr+sections+`<div class="mut sm" style="margin-top:6px">Chances are calibrated to past results: in our backtest, ${SC.bt.n} listed players scored ${Math.round(SC.bt.hit*100)}% of the time. Updated ${ago(SC.updated)}.</div>`;
 }
 
 function evalSlip(legs){
@@ -257,6 +315,8 @@ function exportTailCard(){
 }
 
 document.addEventListener("click",e=>{
+ const scv=e.target.closest("[data-scv]");
+ if(scv){SC_VIEW=scv.getAttribute("data-scv")||"today";render();return}
  const sb=e.target.closest("[data-slip]");
  if(sb){
   try{
