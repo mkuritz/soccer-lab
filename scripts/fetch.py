@@ -18,6 +18,11 @@ def slim_board(j):
         st_type=c["status"]["type"]
         state=st_type.get("state")
         status_det=st_type.get("shortDetail")
+        ev_date=e.get("date")
+        if state=="pre" and j.get("_sport_path"):
+            sm=get(f"https://site.api.espn.com/apis/site/v2/sports/{j['_sport_path']}/summary?event={e['id']}") or {}
+            sc=((sm.get("header") or {}).get("competitions") or [{}])[0]
+            if sc.get("date") and sc.get("date")!=ev_date: ev_date=sc["date"]
         if state=="post" and not st_type.get("completed") and (e.get("date") or "")>now_iso:
             state="pre"
             status_det="Scheduled"
@@ -25,10 +30,11 @@ def slim_board(j):
         tot=o.get("overUnder")
         if e["id"]=="401912622" and not line:
             line="NSR -350"; tot=3.5
-        out.append({"id":e["id"],"date":e["date"],"name":e.get("shortName"),"status":status_det,
+        out.append({"id":e["id"],"date":ev_date,"name":e.get("shortName"),"status":status_det,
             "state":state,"venue":(c.get("venue") or {}).get("fullName"),
             "home":side(t["home"]),"away":side(t["away"]),"line":line,"total":tot,
             "odds_src":(o.get("provider") or {}).get("name"),"bc":[(b.get("names") or [None])[0] for b in c.get("broadcasts",[])][:2]})
+    out.sort(key=lambda g: g.get("date") or "")
     return out
 import re as _re
 _NR = [(r",? sources told ESPN('s [A-Z][\w.' -]+?)?(?=[,.;]|$| that| on)", ", sources said"), (r"\btold ESPN\b('s [A-Z][\w.' -]+)?", "said"),
@@ -68,7 +74,7 @@ def main(sport):
     for k,p in lgs.items():
         if sport=="nfl": b=get(f"https://site.api.espn.com/apis/site/v2/sports/{p}/scoreboard")
         else:
-            b={"events":[]};okc=0
+            b={"events":[],"_sport_path":p};okc=0
             for i in range(8):
                 dd=(datetime.date.today()+datetime.timedelta(days=i)).strftime("%Y%m%d")
                 x=get(f"https://site.api.espn.com/apis/site/v2/sports/{p}/scoreboard?dates={dd}"); okc+=x is not None; x=x or {}
