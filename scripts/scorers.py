@@ -3,16 +3,25 @@
 ours = last-10 scoring rate blended with the market no-vig % (30-game weight, likely.py), then the
 #soccer-chat context nudge (form, start %, team goal projection with 3.5 per-team cap, opponent defense, home).
 When player prop lines are not posted yet for an upcoming fixture, uses real match-log priors (player_priors.json)
-with strict ESPN first-team club roster verification, showing fewer high-confidence players where data is thin rather than guessing.
+with strict first-team club roster verification, showing fewer high-confidence players where data is thin rather than guessing.
 Adds: opponent goals conceded/90 & league defense rank, penalty-taker & set-piece/aerial threat tags, high-total match tags,
-season + h2h rates for display, ESPN Out/Suspended filter.
+season + h2h rates for display, Out/Suspended filter.
 Writes data/scorers.json. Real data only: players without >=5 recent matches are skipped."""
 import json, math, urllib.request, datetime as dt, sys, os, re
 from concurrent.futures import ThreadPoolExecutor
 
 PROPS = 'https://betlab.sportslabshq.com/data/props_soccer.json'
 ESPN = 'https://site.api.espn.com/apis/site/v2/sports/soccer/{lg}/{p}'
-LGS = ["eng.1", "esp.1", "ita.1", "ger.1", "fra.1", "por.1", "tur.1", "uefa.champions", "afc.champions", "usa.1", "mex.1", "ksa.1"]
+LGS = [
+    "eng.1", "esp.1", "ita.1", "ger.1", "fra.1", "ned.1", "por.1", "tur.1",
+    "sco.1", "bra.1", "eng.league_cup", "ger.dfb_pokal", "esp.copa_del_rey",
+    "uefa.champions", "uefa.europa", "afc.champions", "usa.1", "mex.1", "ksa.1"
+]
+CUP_DOM_MAP = {
+    "eng.league_cup": "eng.1",
+    "ger.dfb_pokal": "ger.1",
+    "esp.copa_del_rey": "esp.1",
+}
 PER_MATCH = 3
 PER_MATCH_TODAY = 6
 MIN_SCORE = 0.20
@@ -78,6 +87,8 @@ def fetch_roster(lg, tid, ab):
     if key in _ROSTER_CACHE:
         return _ROSTER_CACHE[key]
     r = get(ESPN.format(lg=lg, p=f"teams/{tid}/roster")) or {}
+    if not r.get('athletes') and lg in CUP_DOM_MAP:
+        r = get(ESPN.format(lg=CUP_DOM_MAP[lg], p=f"teams/{tid}/roster")) or {}
     on, out = {}, set()
     for a in r.get('athletes', []) or []:
         aid = str(a.get('id'))
@@ -181,12 +192,14 @@ def parse_line_ml(line_str, team_ab):
 def main():
     now = dt.datetime.now(dt.timezone.utc)
     today_et = (now - dt.timedelta(hours=4)).strftime('%Y-%m-%d')
-    P = get(PROPS) or []
-    if not P and os.path.exists('/workspace/bet-lab/data/props_soccer.json'):
+    P = []
+    if os.path.exists('/workspace/bet-lab/data/props_soccer.json'):
         try:
             P = json.load(open('/workspace/bet-lab/data/props_soccer.json'))
         except Exception:
             P = []
+    if not P:
+        P = get(PROPS) or []
     try:
         PRIORS = json.load(open('data/player_priors.json'))
     except Exception:
@@ -194,11 +207,13 @@ def main():
     rows = [r for r in P if r.get('market') == 'Anytime Goal' and r.get('time') and now < ts(r['time']) < now + dt.timedelta(days=12)]
     GA = {}
     DEF_RK = {}
+    TEAM_DOM_GA = {}
+    TEAM_DOM_RK = {}
     LG_GAMES = {}
     for lg in LGS:
         try:
             d = json.load(open(f'data/{lg}.json'))
-            LG_GAMES[lg] = [g for g in d.get('games', []) if g.get('state') == 'pre' and g.get('date') and now < ts(g['date']) < now + dt.timedelta(days=12)]
+            LG_GAMES[lg] = [g for g in d.get('games', []) if g.get('state') == 'pre' and g.get('date') and now - dt.timedelta(hours=3) < ts(g['date']) < now + dt.timedelta(days=12)]
             stand_ga = []
             for s in d.get('standings', []):
                 gp = float(s['st'].get('gamesPlayed') or 0)
@@ -207,12 +222,24 @@ def main():
                     ga_val = pa / gp
                     GA[(lg, s['team'])] = ga_val
                     stand_ga.append((ga_val, s['team']))
+                    if lg not in ('uefa.champions', 'uefa.europa', 'afc.champions'):
+                        TEAM_DOM_GA[s['team']] = ga_val
             stand_ga.sort(key=lambda x: x[0])
             n_tm = len(stand_ga)
             for idx, (ga_val, tm) in enumerate(stand_ga):
                 DEF_RK[(lg, tm)] = (idx + 1, n_tm)
+                if lg not in ('uefa.champions', 'uefa.europa', 'afc.champions'):
+                    TEAM_DOM_RK[tm] = (idx + 1, n_tm)
         except Exception:
             LG_GAMES[lg] = []
+
+    def get_ga_rk(lg, tm):
+        ga = GA.get((lg, tm))
+        rk = DEF_RK.get((lg, tm))
+        if ga is None and tm in TEAM_DOM_GA:
+            ga = TEAM_DOM_GA[tm]
+            rk = TEAM_DOM_RK.get(tm)
+        return ga, rk
 
     game_meta = {}
     for lg in LGS:
@@ -265,7 +292,6 @@ def main():
             st_l5 = (pr or {}).get('st_l5') if (pr and pr.get('st_l5') is not None) else ((r.get('u') or {}).get('st') or {}).get('l5')
             if not s['xi'] and st_l5 is not None and st_l5 < 60:
                 continue
-            # Merge enriched priors (H2H, l10, ov override) when available
             r_eff = dict(r)
             if pr:
                 x_eff = dict(r.get('x') or {})
@@ -281,13 +307,12 @@ def main():
             q = base(r_eff)
             if q is None:
                 continue
-            ga = GA.get((lg, r.get('oa')))
+            ga, def_rk = get_ga_rk(lg, r.get('oa'))
             sc = score(q, r_eff, ga)
             if pr and pr.get('best_prop') and sc < MIN_SCORE:
                 sc = max(sc, 0.28)
             if sc < MIN_SCORE:
                 continue
-            def_rk = DEF_RK.get((lg, r.get('oa')))
             gm_info = game_meta.get((lg, gid), {})
             tot = (r.get('gs') or {}).get('tot') or gm_info.get('total')
             tags = build_tags(r_eff, pr, ga, def_rk, tot)
@@ -312,7 +337,7 @@ def main():
                     'why': why(r_eff, ga, def_rk, pr)
                 }
 
-        # 2. Also score verified roster players from match-log priors (both for unpriced fixtures and starters missing from partial prop feeds)
+        # 2. Score verified roster players from match-log priors (both for unpriced fixtures and cup/continental ties)
         for (lg_k, gid), gm in game_meta.items():
             if lg_k != lg:
                 continue
@@ -331,7 +356,7 @@ def main():
                 pr = PRIORS.get(aid)
                 if not pr:
                     continue
-                if pr['team'] != club_ab and lg not in ('uefa.champions', 'afc.champions'):
+                if pr['team'] != club_ab and lg not in ('uefa.champions', 'uefa.europa', 'afc.champions', 'eng.league_cup', 'ger.dfb_pokal', 'esp.copa_del_rey'):
                     continue
                 if s['xi'] and not s['xi'].get(aid):
                     continue
@@ -353,13 +378,12 @@ def main():
                 q = base(synth)
                 if q is None:
                     continue
-                ga = GA.get((lg, opp_ab))
+                ga, def_rk = get_ga_rk(lg, opp_ab)
                 sc = score(q, synth, ga)
                 if pr.get('best_prop') and sc < MIN_SCORE:
                     sc = max(sc, 0.28)
                 if sc < MIN_SCORE:
                     continue
-                def_rk = DEF_RK.get((lg, opp_ab))
                 tags = build_tags(synth, pr, ga, def_rk, tot)
                 m_tags = []
                 if tot is not None and tot >= 3.0:
@@ -399,8 +423,14 @@ def main():
         L.sort(key=lambda g: g['start'])
         out['leagues'][lg] = {'matches': L, 'n_matches': len(L), 'n_players': sum(len(g['players']) for g in L)}
     json.dump(out, open('data/scorers.json', 'w'), separators=(',', ':'))
+    try:
+        import srcscrub
+        srcscrub.scrub_file('data/scorers.json')
+    except Exception:
+        pass
     for lg, v in out['leagues'].items():
-        print(lg, v['n_matches'], 'matches', v['n_players'], 'players')
+        if v['n_matches']:
+            print(lg, v['n_matches'], 'matches', v['n_players'], 'players')
 
 if __name__ == '__main__':
     main()
