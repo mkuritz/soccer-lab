@@ -197,7 +197,7 @@ def main(sport):
     with ThreadPoolExecutor(6) as ex:
         results = list(ex.map(lambda kv: fetch_one_league(kv[0], kv[1], sport, now), lgs.items()))
     for k, d in results:
-        if d["games"] or d["standings"]:
+        if d["games"] or d["standings"] or k=="por.taca.portugal":   # pages request this key even between rounds
             json.dump(d,open(f"data/{k}.json","w"),separators=(",",":"))
             meta["leagues"][k]={"name":d["league"],"games":len(d["games"])}
     if sport!="nfl":
