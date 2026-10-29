@@ -1,17 +1,36 @@
 <!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Star Watchlist · Soccer Hub · Sports Labs</title><link rel="stylesheet" href="style.css">
-<style>:root{--txt:#e6ebf5;--mut:#9aa4c7;--line:#ffffff18;--acc:#53e3a6}.ok{color:var(--acc)}.mut{color:var(--mut)}</style><script src="https://sportslabshq.com/sl/sl.js" defer></script><script src="/sl-neutral.js" defer></script></head><body><div class="w">
-<header><a class="logo" href="./">⚽ Soccer <b>Hub</b></a><span class="mut sm">Star Watchlist</span></header>
-<div id="stars"><div class="card mut">Loading…</div></div><footer>Sports Labs model from real match data. Prices from listed books when posted. Not betting advice. 21+.</footer></div>
+<style>:root{--txt:#e6ebf5;--mut:#9aa4c7;--line:#ffffff18;--acc:#53e3a6}.ok{color:var(--acc)}.mut{color:var(--mut)}</style><script src="https://sportslabshq.com/sl/sl.js?v=12" defer></script><script src="/sl-neutral.js" defer></script></head><body><div class="w">
+<header><a class="logo" href="./">⚽ Soccer <b>Hub</b></a><span class="mut sm">Star Watchlist · Tap any player or club for full profile &amp; game logs</span><nav><a href="./">Soccer Hub</a><a href="https://betlab.sportslabshq.com/#sport=soccer">Bet Lab · Soccer</a><a href="https://betlab.sportslabshq.com/sharp.html">Highlighted</a></nav></header>
+<div id="stars"><div class="card mut">Loading…</div></div>
+<div id="sl-modal-root" class="sl-modal-bg" role="dialog" aria-modal="true" aria-label="Soccer Profile Modal"></div>
+<footer>Sports Labs model from real match data. Prices from listed books when posted. Not betting advice. 21+.</footer></div>
 <script>
 const $=id=>document.getElementById(id),esc=s=>String(s??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c])),am=p=>p>0?"+"+p:p;
 const tm=t=>new Date(t).toLocaleString("en-US",{weekday:"short",hour:"numeric",minute:"2-digit",timeZone:"America/New_York"})+" ET";
-let W=null,WS="gapg";
+let W=null,WS="gapg",HP=null,M_ST={span:"this_szn",stat:"sot",p:null,t:null};
 const WC=[["player","Player"],["apps","Apps"],["g","G"],["a","A"],["gpg","G/app"],["gapg","G+A/app"],["sotpg","SOT/app"],["braces","Braces"],["hats","Hat tricks"],["gc2","2+ G+A"],["a2","2+ A"]];
 function stars(){if(!W){$("stars").innerHTML="";return}const R=W.rows.slice().sort((a,b)=>WS=="player"?a.player.localeCompare(b.player):(b[WS]-a[WS]));
- $("stars").innerHTML=`<div class="card" style="margin-bottom:12px;overflow-x:auto"><div style="padding:8px 0 4px;font-weight:800">⭐ Star Watchlist <span class="mut" style="font-weight:500">core + auto-added on 2026-27 pace · tap a column to sort</span></div>
+ $("stars").innerHTML=`<div class="card" style="margin-bottom:12px;overflow-x:auto"><div style="padding:8px 0 4px;font-weight:800">⭐ Star Watchlist <span class="mut" style="font-weight:500">core + auto-added on 2026-27 pace · tap a column to sort · tap any player or club for full interactive profile</span></div>
  <table style="width:100%;border-collapse:collapse;font-size:12px"><tr>${WC.map(([k,l])=>`<th data-k="${k}" style="text-align:${k=="player"?"left":"right"};color:${k==WS?"var(--txt)":"var(--mut)"};cursor:pointer;padding:4px;font-size:10px;text-transform:uppercase">${l}</th>`).join("")}<th style="text-align:left;color:var(--mut);font-size:10px;padding:4px">NEXT · STATUS</th><th style="text-align:left;color:var(--mut);font-size:10px;padding:4px">LAST 5 (G/A)</th><th style="text-align:right;color:var(--mut);font-size:10px;padding:4px">ATG</th></tr>
- ${R.map(r=>`<tr style="border-top:1px solid var(--line)">${WC.map(([k])=>`<td style="padding:5px 4px;text-align:${k=="player"?"left":"right"}">${k=="player"?`<b>${esc(r.player)}</b>${r.core?" ⭐":""} <span class="mut">${esc(r.club)}</span>`:r[k]}</td>`).join("")}<td style="padding:5px 4px">${r.next?`${esc(r.next.opp)} · ${tm(r.next.time)}<br><span class="${r.today?"ok":"mut"}" style="font-weight:700">${r.today?"Playing today · ":""}${esc(r.lineup||"")}</span>`:'<span class="mut">no match in 10 days</span>'}</td><td style="padding:5px 4px" class="l5">${r.l5.map(x=>x[1]+"/"+x[2]).join(" ")}</td><td style="padding:5px 4px;text-align:right">${r.price!=null?am(r.price):'<span class="mut">no price</span>'}</td></tr>`).join("")}</table>
+ ${R.map(r=>`<tr style="border-top:1px solid var(--line)">${WC.map(([k])=>`<td style="padding:5px 4px;text-align:${k=="player"?"left":"right"}">${k=="player"?`<b><span class="pl-lk soc-plink" data-soc-player="${esc(r.player)}" data-soc-aid="${esc(r.aid||"")}" data-soc-team="${esc(r.club||"")}">${esc(r.player)}</span></b>${r.core?" ⭐":""} <span class="mut tm-lk soc-tlink" data-soc-team="${esc(r.club||"")}" data-soc-lg="${esc(r.lg||"")}">${esc(r.club||"")}</span>`:r[k]}</td>`).join("")}<td style="padding:5px 4px">${r.next?`${esc(r.next.opp)} · ${tm(r.next.time)}<br><span class="${r.today?"ok":"mut"}" style="font-weight:700">${r.today?"Playing today · ":""}${esc(r.lineup||"")}</span>`:'<span class="mut">no match in 10 days</span>'}</td><td style="padding:5px 4px" class="l5">${r.l5.map(x=>x[1]+"/"+x[2]).join(" ")}</td><td style="padding:5px 4px;text-align:right">${r.price!=null?am(r.price):'<span class="mut">no price</span>'}</td></tr>`).join("")}</table>
  <div class="mut" style="padding:6px 0">${esc(W.criteria.note)}. Auto-add: ${W.criteria.min_apps}+ apps, ${W.criteria.min_starts}+ starts, ${W.criteria.goals_per_app}+ goals/app, ${W.criteria.ga_per_app}+ G+A/app, ${W.criteria.sot_per_app}+ SOT/app.</div></div>`;
  $("stars").querySelectorAll("th[data-k]").forEach(t=>t.onclick=()=>{WS=t.dataset.k;stars()})}
-fetch("https://betlab.sportslabshq.com/data/star_watch.json?t="+Date.now()).then(r=>r.json()).then(j=>{W=j;stars()}).catch(()=>{});
+function nk(s){return String(s||"").normalize("NFKD").replace(/[\u0300-\u036f]/g,"").toLowerCase().replace(/[^a-z0-9 ]/g,"").trim()}
+function openPl(aid,nm,tm){
+ if(!HP)return;
+ const p=(aid&&HP.players[aid])||(HP.name_index&&HP.name_index[nk(nm)]&&HP.players[HP.name_index[nk(nm)]])||Object.values(HP.players).find(x=>nk(x.player)===nk(nm));
+ if(!p)return;
+ const wS=(p.windows&&p.windows.Season)||{},arr=(p.this_szn||[]).slice(-10),root=$("sl-modal-root");
+ root.innerHTML=`<div class="sl-modal"><button class="sl-modal-close" onclick="$('sl-modal-root').classList.remove('open')">×</button><div class="sl-m-hdr"><div><h3 class="sl-m-title">${esc(p.player)} <span class="sbadge pk">${esc(p.pos||"FW")}</span></h3><div class="sl-m-sub">Club: <b>${esc(p.team)}</b> · League: <b>${esc((p.lg||"").toUpperCase())}</b></div></div></div><div class="sl-kpi-grid"><div class="sl-kpi"><div class="k">Season Goals</div><div class="v" style="color:var(--acc2)">${wS.g||0}G</div><div class="s">${wS.gpg||0}/g (${wS.gp||0} GP)</div></div><div class="sl-kpi"><div class="k">Assists</div><div class="v">${wS.a||0}A</div><div class="s">${wS.gapg||0} G+A/g</div></div><div class="sl-kpi"><div class="k">SOT / g</div><div class="v" style="color:var(--acc)">${wS.sotpg||0}</div><div class="s">${wS.shpg||0} Shots/g</div></div></div><div class="sl-sec-title"><span>Recent Match Logs</span></div><div class="wrap"><table><thead><tr><th>Date</th><th>Opp</th><th>Comp</th><th>G</th><th>A</th><th>SOT</th><th>Shots</th><th>xG</th></tr></thead><tbody>${arr.slice().reverse().map(x=>`<tr><td>${esc(x.d)}</td><td>${esc(x.at||"vs")} <b>${esc(x.opp)}</b></td><td>${esc(x.lg)}</td><td><b>${x.g}</b></td><td>${x.a}</td><td>${x.sot}</td><td>${x.sh}</td><td>${x.xg}</td></tr>`).join("")}</tbody></table></div></div>`;
+ root.classList.add("open");
+}
+document.addEventListener("click",e=>{
+ if(e.target.id==="sl-modal-root")$("sl-modal-root").classList.remove("open");
+ const pl=e.target.closest("[data-soc-player]");
+ if(pl){openPl(pl.getAttribute("data-soc-aid"),pl.getAttribute("data-soc-player"),pl.getAttribute("data-soc-team"));return}
+});
+Promise.all([
+ fetch("https://betlab.sportslabshq.com/data/star_watch.json?t="+Date.now()).then(r=>r.json()),
+ fetch("data/hub_profiles.json?t="+Date.now()).then(r=>r.ok?r.json():null).catch(()=>null)
+]).then(([j,hp])=>{W=j;HP=hp;stars()}).catch(()=>{});
 </script><script src="sl-sports.js"></script><script src="navcfg.js"></script><script src="side.js"></script></body></html>

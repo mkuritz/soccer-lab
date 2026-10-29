@@ -348,3 +348,625 @@ document.addEventListener("click",e=>{
  j("data/scorers.json",null).then(x=>{SC=x;render()});if(ALL)j(BL+"data/soccer_aidlg.json",{}).then(M=>{ALG=M||{};if(REC.length)render()});
  const [ex,tiers,txt,SG,LH]=await Promise.all([CFG.loadExtra?CFG.loadExtra():{},j(BL+"data/edge_tiers.json",{}),fetch(BL+"data/edge_log.jsonl?t="+Date.now()).then(r=>r.ok?r.text():"").catch(()=>""),j(BL+"data/soccer_goals.json",{rows:[]}),j(BL+"data/soccer_list_hits.json",{rows:[]})]);EX=ex||{};
  const now=Date.now(),D0=(([h,m])=>now-((+h%24)*60+ +m)*60e3-new Date().getSeconds()*1e3)(new Date().toLocaleTimeString("en-US",{timeZone:"America/New_York",hour12:false,hour:"2-digit",minute:"2-digit"}).split(":"));REC=txt.split("\n").filter(Boolean).map(l=>{try{return JSON.parse(l)}catch(e){return null}}).filter(p=>p&&(tiers[p.id]||{}).tier==="recommended"&&new Date(p.start||0)>=D0);REC=((SG||{}).rows||[]).filter(r=>r.rec&&new Date(r.start)>=D0).map(r=>Object.assign({gp:1},r)).concat(REC).concat(((LH||{}).rows||[]).filter(r=>new Date(r.start)>=D0).map(r=>Object.assign({lh:r.result},r)));load()})();
+
+/* ---- Interactive Player, Club/Team & Match Profile Modals + Competition Tactical Edge Board ---- */
+window.SOC_PROFILES = null;
+let TAC_FLT = "all", MODAL_STATE = { kind: null, id: null, span: "this_szn", stat: "sot" };
+
+function normKey(s) {
+  return String(s || "").normalize("NFKD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^a-z0-9 ]/g, "").replace(/\s+/g, " ").trim();
+}
+
+function plLink(name, aid, team, cls) {
+  if (!name) return "";
+  return `<span class="pl-lk soc-plink ${cls || ""}" data-soc-player="${esc(name)}" data-soc-aid="${esc(aid || "")}" data-soc-team="${esc(team || "")}">${esc(name)}</span>`;
+}
+
+function tmLink(abbr, lg, label, cls) {
+  if (!abbr) return "";
+  return `<span class="tm-lk soc-tlink ${cls || ""}" data-soc-team="${esc(abbr)}" data-soc-lg="${esc(lg || LG || "")}">${esc(label || abbr)}</span>`;
+}
+
+function mtLink(gid, label, cls) {
+  if (!gid) return esc(label || "");
+  return `<span class="mt-lk ${cls || ""}" data-soc-match="${esc(gid)}">${esc(label || "")}</span>`;
+}
+
+function ensureModalRoot() {
+  let root = $("sl-modal-root");
+  if (!root) {
+    root = document.createElement("div");
+    root.id = "sl-modal-root";
+    root.className = "sl-modal-bg";
+    root.setAttribute("role", "dialog");
+    root.setAttribute("aria-modal", "true");
+    document.body.appendChild(root);
+  }
+  return root;
+}
+
+function closeSocModal() {
+  const root = $("sl-modal-root");
+  if (root) {
+    root.classList.remove("open");
+    root.innerHTML = "";
+  }
+}
+
+function findPlayerProfile(aid, name, team) {
+  const P = window.SOC_PROFILES;
+  if (!P || !P.players) return null;
+  if (aid && P.players[String(aid)]) return P.players[String(aid)];
+  const nk = normKey(name);
+  if (nk && P.name_index && P.name_index[nk] && P.players[P.name_index[nk]]) {
+    return P.players[P.name_index[nk]];
+  }
+  const all = Object.values(P.players);
+  if (team) {
+    const byTm = all.find(p => p.team === team && normKey(p.player) === nk);
+    if (byTm) return byTm;
+  }
+  return all.find(p => normKey(p.player) === nk || normKey(p.player).includes(nk)) || null;
+}
+
+function findTeamProfile(teamAbbr, nameHint) {
+  const P = window.SOC_PROFILES;
+  if (!P || !P.teams) return null;
+  const k = String(teamAbbr || "").toUpperCase().trim();
+  if (P.teams[k]) return P.teams[k];
+  const nk = normKey(nameHint || teamAbbr);
+  return Object.values(P.teams).find(t => normKey(t.name) === nk || normKey(t.abbr) === nk) || null;
+}
+
+function openPlayerModal(aid, name, team) {
+  const p = findPlayerProfile(aid, name, team);
+  const root = ensureModalRoot();
+  if (!p) {
+    root.innerHTML = `<div class="sl-modal"><button class="sl-modal-close" data-soc-close="1">×</button><div class="sl-m-hdr"><div><h3 class="sl-m-title">${esc(name || "Player Profile")}</h3><div class="sl-m-sub">Club: ${tmLink(team, LG, team)} · Profile match logs syncing</div></div></div><div class="mut">Full game logs for ${esc(name)} populate once starting appearances are logged. Tap ${tmLink(team, LG, team || "Club")} to view club tactical splits.</div></div>`;
+    root.classList.add("open");
+    return;
+  }
+  MODAL_STATE = { kind: "player", p, span: MODAL_STATE.kind === "player" && MODAL_STATE.p === p ? MODAL_STATE.span : "this_szn", stat: MODAL_STATE.kind === "player" && MODAL_STATE.p === p ? MODAL_STATE.stat : "sot" };
+  drawPlayerModal();
+  root.classList.add("open");
+}
+
+function drawPlayerModal() {
+  const p = MODAL_STATE.p;
+  if (!p) return;
+  const root = ensureModalRoot();
+  const T = findTeamProfile(p.team);
+  const logo = T && T.logo ? `<img class="crest" src="${esc(LOGO64(T.logo))}" alt="">` : "";
+  const wSzn = (p.windows && p.windows.Season) || { gp: 0, starts: 0, g: 0, a: 0, gpg: 0, gapg: 0, sotpg: 0, shpg: 0, xgpg: 0 };
+  const wL5 = (p.windows && p.windows.L5) || {};
+  const wL10 = (p.windows && p.windows.L10) || {};
+  const pGoal = p.p_goal || Math.min(0.75, Math.max(0.12, (wSzn.gpg || 0.25) * 0.85));
+
+  const spanArr = (MODAL_STATE.span === "last_szn" ? (p.last_szn || []) : (p.this_szn || [])).slice(-12);
+  const stKey = MODAL_STATE.stat || "sot";
+  const stMeta = {
+    g: { lbl: "Goals (1+)", line: 0.5, fn: x => x.g || 0 },
+    sot: { lbl: "Shots on Target (1+)", line: 0.5, fn: x => x.sot || 0 },
+    sh: { lbl: "Total Shots (2+)", line: 1.5, fn: x => x.sh || 0 },
+    ga: { lbl: "Goal + Assist (1+)", line: 0.5, fn: x => (x.g || 0) + (x.a || 0) }
+  }[stKey] || { lbl: "Shots on Target (1+)", line: 0.5, fn: x => x.sot || 0 };
+
+  const vals = spanArr.map(stMeta.fn);
+  const mx = Math.max(2, stMeta.line * 1.6, ...vals);
+  const hits = vals.filter(v => v > stMeta.line).length;
+  const avgVal = vals.length ? (vals.reduce((a, b) => a + b, 0) / vals.length).toFixed(2) : "0.00";
+
+  const pxMap = p.prices || {};
+  const propCards = [
+    ["Anytime Goal", "atg", pGoal, wL5.g_hit, (wL5.gp || 5), wL10.g_hit, (wL10.gp || 10)],
+    ["1+ Shots on Target", "sot1", Math.min(0.88, Math.max(0.35, (wL10.sot1_hit || 5) / Math.max(1, wL10.gp || 10))), wL5.sot1_hit, (wL5.gp || 5), wL10.sot1_hit, (wL10.gp || 10)],
+    ["2+ Shots on Target", "sot2", Math.min(0.68, Math.max(0.15, (wL10.sot2_hit || 2) / Math.max(1, wL10.gp || 10))), wL5.sot2_hit, (wL5.gp || 5), wL10.sot2_hit, (wL10.gp || 10)],
+    ["Anytime Assist", "ast1", Math.min(0.55, Math.max(0.12, (wSzn.gapg || 0.3) - (wSzn.gpg || 0.15))), null, null, null, null]
+  ].map(([mName, pkKey, ourP, h5, n5, h10, n10]) => {
+    const q = pxMap[pkKey];
+    const amStr = q && q.odds != null ? (q.odds > 0 ? "+" + q.odds : String(q.odds)) : toAm(ourP);
+    const bkStr = q && q.book ? q.book : "Fair Est.";
+    const lid = `mprof|${p.aid}|${pkKey}`;
+    const inS = SLIP.some(x => x.id === lid);
+    const legObj = { id: lid, game: p.team, matchup: p.team, kind: "scorer", aid: String(p.aid), label: `${p.player} (${p.team}) ${mName}`, team: p.team, p: ourP, price: q ? q.odds : null };
+    return `<div class="sl-win-card">
+      <div class="wh"><span>${esc(mName)}</span><span style="color:var(--acc2)">${ esc(amStr) } <small class="mut">${esc(bkStr)}</small></span></div>
+      <div class="sl-win-bars">
+        <div class="wb"><span class="lbl">Our Chance</span><span class="val">${Math.round(ourP * 100)}%</span></div>
+        <div class="wb"><span class="lbl">Fair Odds</span><span class="val">${toAm(ourP)}</span></div>
+        ${h10 != null ? `<div class="wb"><span class="lbl">L10 Hit</span><span class="val">${h10}/${n10}</span></div>` : `<div class="wb"><span class="lbl">Season</span><span class="val">${wSzn.a || 0} A</span></div>`}
+      </div>
+      <button type="button" class="slip-btn ${inS ? "on" : ""}" style="width:100%;margin-top:6px" data-slip='${esc(JSON.stringify(legObj))}'>${inS ? "✓ In Parlay Slip" : "+ Add to Slip"}</button>
+    </div>`;
+  }).join("");
+
+  const sp = p.splits || {};
+  const splitRows = [
+    ["Home Matches", sp.home],
+    ["Away Matches", sp.away],
+    ["Domestic League", sp.league],
+    ["Cup & UEFA/Continental", sp.cup]
+  ].filter(([, o]) => o && o.gp > 0).map(([lbl, o]) => `<tr>
+    <td><b>${esc(lbl)}</b></td>
+    <td>${o.gp} (${o.starts || 0} GS)</td>
+    <td><b>${o.g}G · ${o.a}A</b></td>
+    <td>${o.sotpg} SOT/g</td>
+    <td>${o.shpg} SH/g</td>
+    <td>${o.xgpg} xG/g</td>
+    <td>${o.g_hit}/${o.gp} (${Math.round((o.g_hit / Math.max(1, o.gp)) * 100)}%)</td>
+  </tr>`).join("");
+
+  root.innerHTML = `<div class="sl-modal">
+    <button class="sl-modal-close" data-soc-close="1" aria-label="Close">×</button>
+    <div class="sl-m-hdr">
+      ${logo}
+      <div>
+        <h3 class="sl-m-title">${esc(p.player)} <span class="sbadge pk">${esc(p.pos || "FW")}</span> ${p.pk ? '<span class="sbadge pk">🎯 Penalty Taker</span>' : ""} ${p.sp_threat ? '<span class="sbadge sp">🔥 Set-Piece / Volume Threat</span>' : ""}</h3>
+        <div class="sl-m-sub">
+          <span>Club: <b>${tmLink(p.team, p.lg, (T && T.name) ? `${T.name} (${p.team})` : p.team)}</b></span>
+          <span>· Competition: <b>${esc((p.lg || "").toUpperCase())}</b></span>
+          ${p.best_prop ? `<span>· Best Edge: <b style="color:var(--acc2)">${esc(p.best_prop)}</b></span>` : ""}
+        </div>
+      </div>
+    </div>
+
+    <div class="sl-kpi-grid">
+      <div class="sl-kpi"><div class="k">Season Goals</div><div class="v" style="color:var(--acc2)">${wSzn.g || 0}G</div><div class="s">${wSzn.gpg || 0}/g (${wSzn.gp || 0} GP, ${wSzn.starts || 0} GS)</div></div>
+      <div class="sl-kpi"><div class="k">Season Assists</div><div class="v">${wSzn.a || 0}A</div><div class="s">${wSzn.gapg || 0} G+A/g</div></div>
+      <div class="sl-kpi"><div class="k">Shots on Target</div><div class="v" style="color:var(--acc)">${wSzn.sotpg || 0}/g</div><div class="s">L10: ${wL10.sot1_hit || 0}/${wL10.gp || 0} 1+ SOT</div></div>
+      <div class="sl-kpi"><div class="k">Shot Volume</div><div class="v">${wSzn.shpg || 0}/g</div><div class="s">${wSzn.xgpg || 0} xG/g</div></div>
+      <div class="sl-kpi"><div class="k">Model Goal %</div><div class="v" style="color:#4ade80">${Math.round(pGoal * 100)}%</div><div class="s">Fair ${toAm(pGoal)}</div></div>
+    </div>
+
+    <div class="sl-sec-title"><span>🎯 Calibrated Player Props &amp; Book Prices</span><span class="mut sm">Tap + Add to build SGP</span></div>
+    <div class="sl-win-grid">${propCards}</div>
+
+    <div class="sl-toggles">
+      <div class="sl-btn-grp">
+        <button type="button" class="${MODAL_STATE.span === "this_szn" ? "on" : ""}" data-pm-span="this_szn">2026-27 Season (${(p.this_szn || []).length}G)</button>
+        <button type="button" class="${MODAL_STATE.span === "last_szn" ? "on" : ""}" data-pm-span="last_szn">Prior Season (${(p.last_szn || []).length}G)</button>
+      </div>
+      <div class="sl-btn-grp">
+        <button type="button" class="${stKey === "sot" ? "on" : ""}" data-pm-stat="sot">Shots on Target</button>
+        <button type="button" class="${stKey === "g" ? "on" : ""}" data-pm-stat="g">Goals</button>
+        <button type="button" class="${stKey === "sh" ? "on" : ""}" data-pm-stat="sh">Total Shots</button>
+        <button type="button" class="${stKey === "ga" ? "on" : ""}" data-pm-stat="ga">Goals + Assists</button>
+      </div>
+    </div>
+
+    <div class="sl-chart-wrap">
+      <div class="sl-chart-meta">
+        <span><b>${esc(stMeta.lbl)}</b> · Game-by-Game Log (Oldest → Latest)</span>
+        <span>Cleared in <b style="color:var(--acc2)">${hits}/${vals.length} (${vals.length ? Math.round((hits / vals.length) * 100) : 0}%)</b> · Avg <b>${avgVal}</b></span>
+      </div>
+      ${spanArr.length ? `<div class="sl-bars">${spanArr.map(x => {
+        const v = stMeta.fn(x);
+        const hit = v > stMeta.line;
+        const hPct = Math.max(8, Math.round((v / mx) * 100));
+        return `<div class="sl-bar-col">
+          <div class="sl-bar-val">${v}</div>
+          <div class="sl-bar-track"><div class="sl-bar-fill ${hit ? "hit" : "miss"}" style="height:${hPct}%"></div></div>
+          <div class="sl-bar-lbl"><span class="opp">${tmLink(x.opp, x.lg, `${x.at || "vs"}${x.opp}`)}</span><span class="dt">${esc((x.d || "").slice(5))}</span></div>
+        </div>`;
+      }).join("")}</div>` : `<div class="mut sm" style="padding:10px 0">No match logs in this season window.</div>`}
+    </div>
+
+    ${splitRows ? `<div class="sl-sec-title"><span>📊 Home / Away &amp; League vs. Cup Splits</span></div>
+    <div class="wrap"><table><thead><tr><th>Split Window</th><th>Matches (GS)</th><th>G · A</th><th>SOT/g</th><th>Shots/g</th><th>xG/g</th><th>Scored 1+ Goal</th></tr></thead><tbody>${splitRows}</tbody></table></div>` : ""}
+  </div>`;
+}
+
+function openTeamModal(teamAbbr, lgHint) {
+  const t = findTeamProfile(teamAbbr);
+  const root = ensureModalRoot();
+  if (!t) {
+    root.innerHTML = `<div class="sl-modal"><button class="sl-modal-close" data-soc-close="1">×</button><div class="sl-m-hdr"><h3 class="sl-m-title">${esc(teamAbbr || "Club Profile")}</h3></div><div class="mut">Detailed club profile not available for ${esc(teamAbbr)}.</div></div>`;
+    root.classList.add("open");
+    return;
+  }
+  MODAL_STATE = { kind: "team", t, lg: lgHint || t.dom_lg || LG, span: MODAL_STATE.kind === "team" && MODAL_STATE.t === t ? MODAL_STATE.span : "this_szn" };
+  drawTeamModal();
+  root.classList.add("open");
+}
+
+function drawTeamModal() {
+  const t = MODAL_STATE.t;
+  if (!t) return;
+  const root = ensureModalRoot();
+  const spAll = (t.splits && t.splits.all) || { gp: 0, gf_pg: 0, ga_pg: 0, xg_pg: 0, xga_pg: 0, btts_pct: 0, o25_pct: 0, cs_pct: 0 };
+  const cong = t.congestion || { risk: "LOW", rest_days: 6, m10: 1, note: "Normal rest window" };
+  const stEntries = Object.entries(t.standings || {});
+  const formPills = String(t.form || "").split("").map(c => `<span class="f-pill ${c}">${esc(c)}</span>`).join("");
+
+  const spanArr = (MODAL_STATE.span === "last_szn" ? (t.last_szn || []) : (t.this_szn || [])).slice(-12);
+  const mxG = Math.max(3, ...spanArr.map(x => (x.gf || 0) + (x.ga || 0)));
+
+  const splitRows = [
+    ["All Competitions", (t.splits || {}).all],
+    ["Home Matches", (t.splits || {}).home],
+    ["Away Matches", (t.splits || {}).away],
+    ["Domestic League", (t.splits || {}).league],
+    ["Cup & Continental", (t.splits || {}).cup]
+  ].filter(([, o]) => o && o.gp > 0).map(([lbl, o]) => `<tr>
+    <td><b>${esc(lbl)}</b></td>
+    <td>${o.gp} (${o.w}W-${o.d}D-${o.l}L)</td>
+    <td><b style="color:var(--acc2)">${o.gf_pg}</b> / <span style="color:#fda4af">${o.ga_pg}</span></td>
+    <td>${o.xg_pg} / ${o.xga_pg}</td>
+    <td><b>${o.btts_pct}%</b></td>
+    <td><b>${o.o25_pct}%</b></td>
+    <td>${o.cs_pct}%</td>
+  </tr>`).join("");
+
+  const leadersHTML = (t.leaders || []).map(l => {
+    const amStr = l.price != null ? (l.price > 0 ? "+" + l.price : String(l.price)) : toAm(l.p_goal || 0.25);
+    return `<tr>
+      <td><b>${plLink(l.player, l.aid, t.abbr)}</b> <span class="mut sm">${esc(l.pos || "")}</span> ${l.pk ? '<span class="sbadge pk">PK</span>' : ""}</td>
+      <td>${l.gp} (${l.starts} GS)</td>
+      <td><b style="color:var(--acc2)">${l.g}G · ${l.a}A</b></td>
+      <td>${l.sotpg} SOT/g (${l.shpg} SH/g)</td>
+      <td><b style="color:var(--acc)">${l.p_goal ? Math.round(l.p_goal * 100) + "%" : "—"}</b></td>
+      <td><b>${esc(amStr)}</b></td>
+    </tr>`;
+  }).join("");
+
+  root.innerHTML = `<div class="sl-modal">
+    <button class="sl-modal-close" data-soc-close="1" aria-label="Close">×</button>
+    <div class="sl-m-hdr">
+      ${t.logo ? `<img class="crest" src="${esc(LOGO64(t.logo))}" alt="">` : ""}
+      <div>
+        <h3 class="sl-m-title">${esc(t.name)} <span class="sbadge cal">${esc(t.abbr)}</span> <span class="form-pills">${formPills}</span></h3>
+        <div class="sl-m-sub">
+          ${stEntries.map(([lgK, stO]) => `<span><b>${esc(stO.grp || lgK.toUpperCase())}:</b> #${stO.rank} (${esc(stO.overall || `${stO.w}-${stO.d}-${stO.l}`)} · ${stO.pts} pts · GD ${stO.gd})</span>`).join(" · ") || `<span>Primary League: ${esc((t.dom_lg || "").toUpperCase())}</span>`}
+        </div>
+      </div>
+    </div>
+
+    <div class="sl-cong-box ${esc(cong.risk || "LOW")}">
+      <div><b>⏱️ Fixture Congestion &amp; Turnaround (${esc(cong.risk || "LOW")} Risk):</b> ${esc(cong.note || "")}</div>
+      <div class="mut sm">${cong.last ? `Last: ${esc(cong.last.at)} ${esc(cong.last.opp)} (${esc(cong.last.score)} ${esc(cong.last.res)})` : ""} ${cong.next ? `· Next: ${esc(cong.next.at)} ${esc(cong.next.opp)} (${esc(cong.next.d)})` : ""}</div>
+    </div>
+
+    <div class="sl-kpi-grid">
+      <div class="sl-kpi"><div class="k">Goals For / 90</div><div class="v" style="color:var(--acc2)">${spAll.gf_pg}</div><div class="s">xG/90: ${spAll.xg_pg}</div></div>
+      <div class="sl-kpi"><div class="k">Goals Against / 90</div><div class="v" style="color:${spAll.ga_pg >= 1.65 ? "var(--bad)" : "var(--txt)"}">${spAll.ga_pg}</div><div class="s">xGA/90: ${spAll.xga_pg}</div></div>
+      <div class="sl-kpi"><div class="k">BTTS Hit Rate</div><div class="v" style="color:var(--acc)">${spAll.btts_pct}%</div><div class="s">Both Teams to Score</div></div>
+      <div class="sl-kpi"><div class="k">Over 2.5 Goals</div><div class="v">${spAll.o25_pct}%</div><div class="s">3+ Total Match Goals</div></div>
+      <div class="sl-kpi"><div class="k">Clean Sheet %</div><div class="v">${spAll.cs_pct}%</div><div class="s">${spAll.gp} Matches Sampled</div></div>
+    </div>
+
+    <div class="sl-toggles">
+      <div class="sl-sec-title" style="margin:0"><span>📈 Match Results &amp; Total Goals Log</span></div>
+      <div class="sl-btn-grp">
+        <button type="button" class="${MODAL_STATE.span === "this_szn" ? "on" : ""}" data-tm-span="this_szn">2026-27 Season (${(t.this_szn || []).length}G)</button>
+        <button type="button" class="${MODAL_STATE.span === "last_szn" ? "on" : ""}" data-tm-span="last_szn">Prior Season (${(t.last_szn || []).length}G)</button>
+      </div>
+    </div>
+
+    <div class="sl-chart-wrap" style="margin-top:8px">
+      ${spanArr.length ? `<div class="sl-bars">${spanArr.map(x => {
+        const totG = (x.gf || 0) + (x.ga || 0);
+        const hPct = Math.max(10, Math.round((totG / mxG) * 100));
+        const fillCls = x.res === "W" ? "hit" : x.res === "D" ? "draw" : "miss";
+        return `<div class="sl-bar-col">
+          <span class="sl-bar-res ${esc(x.res || "D")}">${esc(x.res || "D")}</span>
+          <div class="sl-bar-val">${x.gf}-${x.ga}</div>
+          <div class="sl-bar-track"><div class="sl-bar-fill ${fillCls}" style="height:${hPct}%"></div></div>
+          <div class="sl-bar-lbl"><span class="opp">${tmLink(x.opp, x.lg, `${x.at || "vs"}${x.opp}`)}</span><span class="dt">${esc((x.d || "").slice(5))}</span></div>
+        </div>`;
+      }).join("")}</div>` : `<div class="mut sm">No match logs in this window.</div>`}
+    </div>
+
+    ${splitRows ? `<div class="sl-sec-title"><span>🏟️ Club Home / Away &amp; Competition Splits</span></div>
+    <div class="wrap"><table><thead><tr><th>Split</th><th>Record</th><th>GF / GA per 90</th><th>xG / xGA per 90</th><th>BTTS %</th><th>Over 2.5 %</th><th>Clean Sheet %</th></tr></thead><tbody>${splitRows}</tbody></table></div>` : ""}
+
+    ${leadersHTML ? `<div class="sl-sec-title"><span>⭐ Club Attacking Leaders (Tap any player for full profile)</span></div>
+    <div class="wrap"><table><thead><tr><th>Player</th><th>Apps (GS)</th><th>G · A</th><th>Shot Volume</th><th>Model Goal %</th><th>ATG Price</th></tr></thead><tbody>${leadersHTML}</tbody></table></div>` : ""}
+  </div>`;
+}
+
+function poisProb(lam, k) {
+  return Math.exp(-lam) * Math.pow(lam, k) / (k <= 1 ? 1 : k === 2 ? 2 : k === 3 ? 6 : k === 4 ? 24 : k === 5 ? 120 : 720);
+}
+
+function calcMatchPoisson(g) {
+  const lg = g._lg || LG;
+  const tA = findTeamProfile(g.away && g.away.abbr);
+  const tH = findTeamProfile(g.home && g.home.abbr);
+  const tot = g.total ? Number(g.total) : 2.65;
+  let aShare = 0.46;
+  if (g.line && g.line !== "EVEN") {
+    const pts = String(g.line).trim().split(/\s+/);
+    const fav = pts[0], ml = parseFloat(pts[1]);
+    if (isFinite(ml) && ml !== 0) {
+      const pFav = imp(ml) || 0.5;
+      const fShare = Math.min(0.76, Math.max(0.46, 0.50 + (pFav - 0.38) * 0.65));
+      aShare = fav === g.away.abbr ? fShare : 1 - fShare;
+    }
+  }
+  const lamA = Math.max(0.45, +(tot * aShare).toFixed(2));
+  const lamH = Math.max(0.55, +(tot * (1 - aShare)).toFixed(2));
+  let pA = 0, pD = 0, pH = 0, pO25 = 0, pBTTS = 0;
+  for (let i = 0; i <= 6; i++) {
+    const pi = Math.exp(-lamA) * Math.pow(lamA, i) / [1, 1, 2, 6, 24, 120, 720][i];
+    for (let j = 0; j <= 6; j++) {
+      const pj = Math.exp(-lamH) * Math.pow(lamH, j) / [1, 1, 2, 6, 24, 120, 720][j];
+      const p = pi * pj;
+      if (i > j) pA += p;
+      else if (i === j) pD += p;
+      else pH += p;
+      if (i + j >= 3) pO25 += p;
+      if (i >= 1 && j >= 1) pBTTS += p;
+    }
+  }
+  const isKo = /cup|pokal|rey|champions|europa|usa\.1|mex\.1/i.test(lg);
+  return { lg, lamA, lamH, pA, pD, pH, pO25, pBTTS, isKo, tA, tH };
+}
+
+function openMatchModal(gid) {
+  const g = (D.games || []).find(x => String(x.id) === String(gid));
+  if (!g) return;
+  const root = ensureModalRoot();
+  const mp = calcMatchPoisson(g);
+  const cm = ((window.SOC_PROFILES || {}).comp_meta || {})[mp.lg] || ((window.SOC_PROFILES || {}).comp_meta || {}).all || {};
+  const aLeaders = (mp.tA && mp.tA.leaders || []).slice(0, 3);
+  const hLeaders = (mp.tH && mp.tH.leaders || []).slice(0, 3);
+
+  root.innerHTML = `<div class="sl-modal">
+    <button class="sl-modal-close" data-soc-close="1" aria-label="Close">×</button>
+    <div class="sl-m-hdr">
+      ${g.away.logo ? `<img class="crest" src="${esc(LOGO64(g.away.logo))}" alt="">` : ""}
+      <div style="flex:1">
+        <h3 class="sl-m-title">${tmLink(g.away.abbr, mp.lg, g.away.name || g.away.abbr)} <span class="mut">at</span> ${tmLink(g.home.abbr, mp.lg, g.home.name || g.home.abbr)}</h3>
+        <div class="sl-m-sub"><span>${et(g.date)}</span> · <span>${esc(cm.name || mp.lg.toUpperCase())}</span> ${g.venue ? `· <span>${esc(g.venue)}</span>` : ""}</div>
+      </div>
+      ${g.home.logo ? `<img class="crest" src="${esc(LOGO64(g.home.logo))}" alt="">` : ""}
+    </div>
+
+    <div class="comp-banner" style="margin-bottom:12px">
+      <div class="cb-main">
+        <div class="cb-title"><span>${esc(cm.badge || "Competition Rules")}</span><span>${esc(cm.format || "")}</span></div>
+        <div class="cb-settle">${esc(cm.settlement || "90-Min + Stoppage Time Regulation Settlement")}</div>
+        <div class="cb-cut">${esc(cm.cutlines || "")}</div>
+      </div>
+    </div>
+
+    <div class="sl-kpi-grid">
+      <div class="sl-kpi"><div class="k">${esc(g.away.abbr)} Win (2)</div><div class="v" style="color:#38bdf8">${Math.round(mp.pA * 100)}%</div><div class="s">λ_away: ${mp.lamA} xG (Fair ${toAm(mp.pA)})</div></div>
+      <div class="sl-kpi"><div class="k">90' Draw (X)</div><div class="v" style="color:#fcd34d">${Math.round(mp.pD * 100)}%</div><div class="s">Fair ${toAm(mp.pD)}</div></div>
+      <div class="sl-kpi"><div class="k">${esc(g.home.abbr)} Win (1)</div><div class="v" style="color:var(--acc2)">${Math.round(mp.pH * 100)}%</div><div class="s">λ_home: ${mp.lamH} xG (Fair ${toAm(mp.pH)})</div></div>
+      <div class="sl-kpi"><div class="k">Over 2.5 Goals</div><div class="v" style="color:var(--acc)">${Math.round(mp.pO25 * 100)}%</div><div class="s">Proj Total ${(mp.lamA + mp.lamH).toFixed(2)}</div></div>
+      <div class="sl-kpi"><div class="k">BTTS (Yes)</div><div class="v">${Math.round(mp.pBTTS * 100)}%</div><div class="s">Both Clubs Score</div></div>
+    </div>
+
+    <div class="two">
+      <div class="card" style="margin:0">
+        <h3>✈️ ${tmLink(g.away.abbr, mp.lg, `${g.away.name} (${g.away.abbr})`)} Attacking Leaders</h3>
+        <table><thead><tr><th>Player</th><th>G · A</th><th>SOT/g</th><th>Goal %</th></tr></thead><tbody>
+          ${aLeaders.map(l => `<tr><td><b>${plLink(l.player, l.aid, g.away.abbr)}</b></td><td>${l.g}G · ${l.a}A</td><td>${l.sotpg}</td><td><b>${Math.round((l.p_goal || 0.25) * 100)}%</b></td></tr>`).join("") || '<tr><td colspan="4" class="mut">Tap club name above for full squad.</td></tr>'}
+        </tbody></table>
+      </div>
+      <div class="card" style="margin:0">
+        <h3>🏠 ${tmLink(g.home.abbr, mp.lg, `${g.home.name} (${g.home.abbr})`)} Attacking Leaders</h3>
+        <table><thead><tr><th>Player</th><th>G · A</th><th>SOT/g</th><th>Goal %</th></tr></thead><tbody>
+          ${hLeaders.map(l => `<tr><td><b>${plLink(l.player, l.aid, g.home.abbr)}</b></td><td>${l.g}G · ${l.a}A</td><td>${l.sotpg}</td><td><b>${Math.round((l.p_goal || 0.25) * 100)}%</b></td></tr>`).join("") || '<tr><td colspan="4" class="mut">Tap club name above for full squad.</td></tr>'}
+        </tbody></table>
+      </div>
+    </div>
+  </div>`;
+  root.classList.add("open");
+}
+
+function renderCompBanner() {
+  const el = $("comp-banner");
+  if (!el) return;
+  const cm = ((window.SOC_PROFILES || {}).comp_meta || {})[LG] || ((window.SOC_PROFILES || {}).comp_meta || {}).all;
+  if (!cm) { el.innerHTML = ""; return; }
+  el.innerHTML = `<div class="comp-banner">
+    <div class="cb-main">
+      <div class="cb-title"><span>${esc(cm.name)}</span><span class="sbadge pk">${esc(cm.badge)}</span></div>
+      <div style="color:var(--txt);font-size:12px">${esc(cm.format)}</div>
+      <div class="cb-settle">${esc(cm.settlement)}</div>
+      <div class="cb-cut">📌 <b>Cutlines &amp; Advancement:</b> ${esc(cm.cutlines)}</div>
+    </div>
+  </div>`;
+}
+
+function renderTacBoard(G) {
+  const el = $("tac-board");
+  if (!el) return;
+  const up = (G || []).filter(g => g.state !== "post").slice(0, 30);
+  if (!up.length) {
+    el.innerHTML = '<div class="mut">No upcoming matches in the current filter window.</div>';
+    return;
+  }
+  const rows = up.map(g => {
+    const mp = calcMatchPoisson(g);
+    const congA = (mp.tA && mp.tA.congestion) || {};
+    const congH = (mp.tH && mp.tH.congestion) || {};
+    const restEdge = (congA.risk === "HIGH" || congH.risk === "HIGH");
+    const highGoal = (mp.pO25 >= 0.56 || (mp.lamA + mp.lamH) >= 2.95);
+    let topScorer = null;
+    if (SC && SC.leagues && SC.leagues[mp.lg]) {
+      const mSc = (SC.leagues[mp.lg].matches || []).find(m => String(m.game) === String(g.id));
+      if (mSc && mSc.players && mSc.players[0]) topScorer = mSc.players[0];
+    }
+    if (!topScorer) {
+      const candL = [...(mp.tH && mp.tH.leaders || []), ...(mp.tA && mp.tA.leaders || [])].sort((a, b) => (b.p_goal || 0) - (a.p_goal || 0));
+      if (candL[0]) topScorer = { player: candL[0].player, aid: candL[0].aid, team: (mp.tH && (mp.tH.leaders || []).includes(candL[0])) ? g.home.abbr : g.away.abbr, p: candL[0].p_goal || 0.38 };
+    }
+    return { g, mp, congA, congH, restEdge, highGoal, topScorer };
+  });
+
+  const filtered = rows.filter(r => {
+    if (TAC_FLT === "ko") return r.mp.isKo || r.mp.pD >= 0.25;
+    if (TAC_FLT === "goals") return r.highGoal;
+    if (TAC_FLT === "rest") return r.restEdge;
+    return true;
+  });
+
+  el.innerHTML = `<div class="tac-flt-bar">
+    <button type="button" class="${TAC_FLT === "all" ? "on" : ""}" data-tacf="all">All Fixtures (${rows.length})</button>
+    <button type="button" class="${TAC_FLT === "ko" ? "on" : ""}" data-tacf="ko">🏆 Knockout / 90' Regulation Draw Alerts (${rows.filter(r => r.mp.isKo || r.mp.pD >= 0.25).length})</button>
+    <button type="button" class="${TAC_FLT === "goals" ? "on" : ""}" data-tacf="goals">⚡ High-Total &amp; BTTS Funnels (${rows.filter(r => r.highGoal).length})</button>
+    <button type="button" class="${TAC_FLT === "rest" ? "on" : ""}" data-tacf="rest">⏱️ Rest &amp; Congestion Mismatches (${rows.filter(r => r.restEdge).length})</button>
+  </div>
+  <div class="wrap"><table class="tac-tbl"><thead><tr>
+    <th>Matchup &amp; Kickoff (ET)</th>
+    <th>Competition &amp; Settlement</th>
+    <th>Poisson xG (A – H)</th>
+    <th>90' 1X2 Probabilities</th>
+    <th>O2.5 / BTTS</th>
+    <th>Top Calibrated Scorer</th>
+    <th>Tactical Breakdown</th>
+  </tr></thead><tbody>${filtered.slice(0, 18).map(({ g, mp, congA, congH, topScorer }) => {
+    const lgLbl = (CFG.leagues.find(l => l[0] === mp.lg) || [, mp.lg.toUpperCase()])[1];
+    return `<tr>
+      <td><b>${tmLink(g.away.abbr, mp.lg)}</b> <span class="mut">@</span> <b>${tmLink(g.home.abbr, mp.lg)}</b><div class="mut sm">${et(g.date)}</div></td>
+      <td><span class="cut-pill ${mp.isKo ? "ko" : "ucl"}">${esc(lgLbl)}</span>${congA.risk === "HIGH" || congH.risk === "HIGH" ? ` <span class="sbadge sv">⏱️ Short Rest</span>` : ""}</td>
+      <td><b>${mp.lamA.toFixed(2)} – ${mp.lamH.toFixed(2)}</b> <span class="mut sm">(${(mp.lamA + mp.lamH).toFixed(1)})</span></td>
+      <td><div class="p1x2"><span class="${mp.pA >= mp.pH ? "hi" : ""}">2: ${Math.round(mp.pA * 100)}%</span><span class="${mp.pD >= 0.26 ? "hi" : ""}">X: ${Math.round(mp.pD * 100)}%</span><span class="${mp.pH > mp.pA ? "hi" : ""}">1: ${Math.round(mp.pH * 100)}%</span></div></td>
+      <td><b>${Math.round(mp.pO25 * 100)}%</b> O2.5 · <b>${Math.round(mp.pBTTS * 100)}%</b> BTTS</td>
+      <td>${topScorer ? `${plLink(topScorer.player, topScorer.aid, topScorer.team)} <span class="mut sm">(${tmLink(topScorer.team, mp.lg)})</span> <b style="color:var(--acc2)">${Math.round((topScorer.p || 0.35) * 100)}%</b>` : '<span class="mut sm">—</span>'}</td>
+      <td><button type="button" class="slip-btn" data-soc-match="${esc(g.id)}">📊 Breakdown</button></td>
+    </tr>`;
+  }).join("")}</tbody></table></div>`;
+}
+
+// Decorate rendered DOM elements in #take, #scor, #games, and #stand so every player, team, and match is clickable
+function decorateClickableNames() {
+  renderCompBanner();
+  const G0 = (D.games || []).slice().sort((x, y) => x.date < y.date ? -1 : 1);
+  const G = MF ? G0.filter(g => String(g.id) == MF) : G0;
+  renderTacBoard(G);
+
+  // 1. Decorate Likely Scorers (#scor)
+  const scorEl = $("scor");
+  if (scorEl) {
+    scorEl.querySelectorAll(".sc-row").forEach(row => {
+      const b = row.querySelector("b");
+      const btn = row.querySelector("[data-slip]");
+      if (b && !b.querySelector("[data-soc-player]")) {
+        let aid = "", tm = "";
+        if (btn) {
+          try {
+            const o = JSON.parse(btn.getAttribute("data-slip"));
+            aid = o.aid || "";
+            tm = o.team || "";
+          } catch (e) {}
+        }
+        const nm = b.textContent.trim();
+        b.innerHTML = plLink(nm, aid, tm);
+      }
+    });
+  }
+
+  // 2. Decorate Takeaways (#take)
+  const takeEl = $("take");
+  if (takeEl) {
+    takeEl.querySelectorAll(".tk b").forEach(b => {
+      if (b.querySelector("[data-soc-player]") || b.classList.contains("lv")) return;
+      const txt = b.textContent.trim();
+      if (!txt || /^[+-]?\d+$/.test(txt)) return;
+      const cleanNm = txt.replace(/\s+(anytime goal|anytime assist|1\+ shots on target|2\+ shots|shots on target.*|shots.*|assists.*|to score.*)$/i, "").trim();
+      if (cleanNm && cleanNm.length >= 3) {
+        const p = findPlayerProfile(null, cleanNm, null);
+        if (p) {
+          b.innerHTML = plLink(cleanNm, p.aid, p.team) + esc(txt.slice(cleanNm.length));
+        } else if (!/\b(over|to win|blowout)\b/i.test(cleanNm)) {
+          b.innerHTML = plLink(cleanNm, "", "") + esc(txt.slice(cleanNm.length));
+        }
+      }
+    });
+  }
+
+  // 3. Decorate Match Cards (#games)
+  const gamesEl = $("games");
+  if (gamesEl && G.length) {
+    gamesEl.querySelectorAll(".g").forEach((card, idx) => {
+      const g = G[idx];
+      if (!g) return;
+      const lg = g._lg || LG;
+      const tms = card.querySelectorAll(".gh .tm");
+      if (tms[0] && !tms[0].querySelector("[data-soc-team]")) {
+        const img = tms[0].querySelector("img");
+        tms[0].innerHTML = `${img ? img.outerHTML : ""}${tmLink(g.away.abbr, lg, g.away.abbr)} ${g.state != "pre" ? esc(g.away.score) : ""}`;
+      }
+      if (tms[1] && !tms[1].querySelector("[data-soc-team]")) {
+        const img = tms[1].querySelector("img");
+        tms[1].innerHTML = `${img ? img.outerHTML : ""}${tmLink(g.home.abbr, lg, g.home.abbr)} ${g.state != "pre" ? esc(g.home.score) : ""}`;
+      }
+      if (!card.querySelector("[data-soc-match]")) {
+        const btnWrap = document.createElement("div");
+        btnWrap.style.marginTop = "6px";
+        btnWrap.innerHTML = `<button type="button" class="slip-btn" data-soc-match="${esc(g.id)}">📊 Match Tactical Breakdown (${esc(g.away.abbr)} @ ${esc(g.home.abbr)})</button>`;
+        card.appendChild(btnWrap);
+      }
+    });
+  }
+
+  // 4. Decorate Standings (#stand)
+  const standEl = $("stand");
+  if (standEl && D.standings) {
+    standEl.querySelectorAll("table tr").forEach(tr => {
+      const td = tr.querySelector("td");
+      if (!td || td.querySelector("[data-soc-team]")) return;
+      const img = td.querySelector("img");
+      const nm = td.textContent.trim();
+      const rowObj = (D.standings || []).find(r => r.name === nm || r.team === nm);
+      if (rowObj) {
+        td.innerHTML = `${img ? img.outerHTML : ""}${tmLink(rowObj.team, LG, rowObj.name)}`;
+      }
+    });
+  }
+}
+
+const _origRender = render;
+render = function() {
+  _origRender();
+  decorateClickableNames();
+};
+
+document.addEventListener("click", e => {
+  if (e.target.closest("[data-soc-close]") || e.target.id === "sl-modal-root") {
+    closeSocModal();
+    return;
+  }
+  const pmSpan = e.target.closest("[data-pm-span]");
+  if (pmSpan) { MODAL_STATE.span = pmSpan.getAttribute("data-pm-span"); drawPlayerModal(); return; }
+  const pmStat = e.target.closest("[data-pm-stat]");
+  if (pmStat) { MODAL_STATE.stat = pmStat.getAttribute("data-pm-stat"); drawPlayerModal(); return; }
+  const tmSpan = e.target.closest("[data-tm-span]");
+  if (tmSpan) { MODAL_STATE.span = tmSpan.getAttribute("data-tm-span"); drawTeamModal(); return; }
+  const tacF = e.target.closest("[data-tacf]");
+  if (tacF) { TAC_FLT = tacF.getAttribute("data-tacf") || "all"; decorateClickableNames(); return; }
+
+  const pl = e.target.closest("[data-soc-player]");
+  if (pl) {
+    e.stopPropagation();
+    openPlayerModal(pl.getAttribute("data-soc-aid"), pl.getAttribute("data-soc-player"), pl.getAttribute("data-soc-team"));
+    return;
+  }
+  const tm = e.target.closest("[data-soc-team]");
+  if (tm) {
+    e.stopPropagation();
+    openTeamModal(tm.getAttribute("data-soc-team"), tm.getAttribute("data-soc-lg"));
+    return;
+  }
+  const mt = e.target.closest("[data-soc-match]");
+  if (mt) {
+    e.stopPropagation();
+    openMatchModal(mt.getAttribute("data-soc-match"));
+    return;
+  }
+});
+
+document.addEventListener("keydown", e => {
+  if (e.key === "Escape") closeSocModal();
+});
+
+j("data/hub_profiles.json", null).then(hp => {
+  if (hp) {
+    window.SOC_PROFILES = hp;
+    if (D && D.games) decorateClickableNames();
+  }
+});

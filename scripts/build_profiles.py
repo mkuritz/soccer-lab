@@ -15,6 +15,170 @@ LGS = [
     "sco.1", "bra.1", "eng.league_cup", "ger.dfb_pokal", "esp.copa_del_rey",
     "uefa.champions", "uefa.europa", "afc.champions", "usa.1", "mex.1", "ksa.1"
 ]
+
+COMP_META = {
+    "all": {
+        "name": "All Covered Competitions (19 Leagues & Cups)",
+        "badge": "🌍 Global Multi-Competition Slate",
+        "format": "Domestic 3-Pt Tables · UEFA/AFC League Phases · Domestic Knockout Cups · MLS Best-of-3",
+        "settlement": "⚠️ 90-Min + Stoppage Time Regulation Settlement across all 1X2, Totals, BTTS & Player Props (Extra Time & Penalty Kicks excluded unless market specifies 'To Advance').",
+        "cutlines": "Tap any league tab above to filter by competition cutlines, or tap any Player, Club, or Match below for full interactive profiles.",
+        "ucl_top": 4, "eur_top": 6, "po_ranks": [], "rel_from": 18
+    },
+    "eng.1": {
+        "name": "English Premier League",
+        "badge": "🏴󠁧󠁢󠁥󠁮󠁧󠁿 38-Match 3-Pt Table",
+        "format": "38 Matchweeks · #1 Tiebreaker: Goal Differential (GD), then Goals Scored",
+        "settlement": "90-Min + Stoppage Time Regulation Settlement",
+        "cutlines": "Top 4: UEFA Champions League · 5th: Europa League · 6th: Conference League · 18th–20th: Relegated to Championship",
+        "ucl_top": 4, "eur_top": 6, "po_ranks": [], "rel_from": 18
+    },
+    "esp.1": {
+        "name": "LALIGA EA Sports",
+        "badge": "🇪🇸 38-Match 3-Pt Table",
+        "format": "38 Matchweeks · #1 Tiebreaker: Head-to-Head Points/GD, then Overall GD",
+        "settlement": "90-Min + Stoppage Time Regulation Settlement",
+        "cutlines": "Top 4: UEFA Champions League · 5th: Europa League · 6th: Conference League · 18th–20th: Relegated",
+        "ucl_top": 4, "eur_top": 6, "po_ranks": [], "rel_from": 18
+    },
+    "ita.1": {
+        "name": "Serie A Enilive",
+        "badge": "🇮🇹 38-Match 3-Pt Table",
+        "format": "38 Matchweeks · Scudetto & 17th/18th ties settled via Playoff Match; other places H2H then GD",
+        "settlement": "90-Min + Stoppage Time Regulation Settlement",
+        "cutlines": "Top 4: UEFA Champions League · 5th: Europa League · 6th: Conference League · 18th–20th: Relegated",
+        "ucl_top": 4, "eur_top": 6, "po_ranks": [], "rel_from": 18
+    },
+    "ger.1": {
+        "name": "German Bundesliga",
+        "badge": "🇩🇪 34-Match 3-Pt Table",
+        "format": "34 Matchweeks · #1 Tiebreaker: Goal Differential (GD) · High-Pace Transition Environment",
+        "settlement": "90-Min + Stoppage Time Regulation Settlement",
+        "cutlines": "Top 4: UEFA Champions League · 5th: Europa League · 6th: Conference League · 16th: Relegation Playoff · 17th–18th: Relegated",
+        "ucl_top": 4, "eur_top": 6, "po_ranks": [16], "rel_from": 17
+    },
+    "fra.1": {
+        "name": "Ligue 1 McDonald's",
+        "badge": "🇫🇷 34-Match 3-Pt Table",
+        "format": "18 Clubs · 34 Matchweeks · #1 Tiebreaker: Goal Differential (GD)",
+        "settlement": "90-Min + Stoppage Time Regulation Settlement",
+        "cutlines": "Top 3: UEFA Champions League (4th: UCL Qual) · 5th: Europa League · 6th: Conference League · 16th: Playoff · 17th–18th: Relegated",
+        "ucl_top": 4, "eur_top": 6, "po_ranks": [16], "rel_from": 17
+    },
+    "eng.league_cup": {
+        "name": "EFL Carabao Cup 🏆",
+        "badge": "🏆 Single-Leg Knockout Tie (No ET)",
+        "format": "Single-Elimination Knockout · Tied @ 90' goes STRAIGHT to Penalties (No Extra Time before Semifinals!)",
+        "settlement": "⚠️ 90-Min + Stoppage Time Settlement! A 90-minute draw settles 1X2 as Draw even when a club advances on penalties.",
+        "cutlines": "Winner Advances to Quarterfinals · High Midweek Squad Rotation Alert — verify confirmed Starting XI!",
+        "ucl_top": 0, "eur_top": 0, "po_ranks": [], "rel_from": 99
+    },
+    "ger.dfb_pokal": {
+        "name": "DFB-Pokal 🏆",
+        "badge": "🏆 Single-Leg Knockout Tie",
+        "format": "Single-Elimination German Cup · Lower-Division Club Hosts Bundesliga Opponent",
+        "settlement": "⚠️ 90-Min + Stoppage Time Settlement for 1X2, Spread, Totals & Player Props (30-min Extra Time & PKs only apply to 'To Advance').",
+        "cutlines": "Winner Advances to Round of 16 · Monitor rotation for clubs in UCL + Bundesliga action.",
+        "ucl_top": 0, "eur_top": 0, "po_ranks": [], "rel_from": 99
+    },
+    "esp.copa_del_rey": {
+        "name": "Copa del Rey 🏆",
+        "badge": "🏆 Single-Leg Knockout Tie",
+        "format": "Single-Elimination Spanish Cup · Hosted at Lower-Seeded Club's Ground",
+        "settlement": "⚠️ 90-Min + Stoppage Time Settlement for 1X2, Totals & Player Props (Extra Time & PKs excluded from 90-min markets).",
+        "cutlines": "Winner Advances · Heavy LaLiga squad rotation in early rounds creates asymmetric value.",
+        "ucl_top": 0, "eur_top": 0, "po_ranks": [], "rel_from": 99
+    },
+    "uefa.champions": {
+        "name": "UEFA Champions League",
+        "badge": "🇪🇺 36-Club Swiss League Phase",
+        "format": "8 League-Phase Matches (4 Home, 4 Away) · #1 Tiebreaker: Overall Goal Differential (GD) & Away Goals Scored",
+        "settlement": "90-Min + Stoppage Time Regulation Settlement",
+        "cutlines": "1st–8th: Auto-Advance to Round of 16 · 9th–24th: Two-Leg Knockout Playoffs · 25th–36th: Eliminated (No Europa Drop-Down!)",
+        "ucl_top": 8, "eur_top": 8, "po_ranks": [9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24], "rel_from": 25
+    },
+    "uefa.europa": {
+        "name": "UEFA Europa League",
+        "badge": "🇪🇺 36-Club Swiss League Phase",
+        "format": "8 League-Phase Matches · #1 Tiebreaker: Overall Goal Differential (GD)",
+        "settlement": "90-Min + Stoppage Time Regulation Settlement",
+        "cutlines": "1st–8th: Auto-Advance to Round of 16 · 9th–24th: Two-Leg Knockout Playoffs · 25th–36th: Eliminated",
+        "ucl_top": 8, "eur_top": 8, "po_ranks": [9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24], "rel_from": 25
+    },
+    "afc.champions": {
+        "name": "AFC Champions League Elite",
+        "badge": "🌏 12-Club Regional League Stage",
+        "format": "West & East 12-Club League Tables (8 Matches) · #1 Tiebreaker: Goal Differential (GD)",
+        "settlement": "90-Min + Stoppage Time Regulation Settlement",
+        "cutlines": "Top 8 per Region: Advance to Round of 16 · 9th–12th: Eliminated",
+        "ucl_top": 8, "eur_top": 8, "po_ranks": [], "rel_from": 9
+    },
+    "usa.1": {
+        "name": "MLS · Audi MLS Cup Playoffs",
+        "badge": "🇺🇸 MLS Playoffs · Best-of-3 Series",
+        "format": "Round One Best-of-3 Series (No Aggregate Score; Every Match Must Produce a Series Winner via 90' or Immediate PKs!)",
+        "settlement": "⚠️ 90-Min + Stoppage Time Regulation Settlement for 1X2 & Totals (Matches tied @ 90' go straight to PK Penalty Kicks; 1X2 settles as Draw!).",
+        "cutlines": "First to 2 Match Wins Advances to Conference Semifinals · Trailing teams in Game 2/3 push aggressively.",
+        "ucl_top": 7, "eur_top": 7, "po_ranks": [8, 9], "rel_from": 10
+    },
+    "mex.1": {
+        "name": "Liga MX Apertura",
+        "badge": "🇲🇽 17-Match Table + Liguilla",
+        "format": "17 Regular-Season Matchweeks -> Play-In (7th–10th) -> Liguilla Quarterfinals (Top 6 Auto-Qualify)",
+        "settlement": "90-Min + Stoppage Time Regulation Settlement · High-Altitude Home Venues (CDMX, Toluca, Pachuca)",
+        "cutlines": "1st–6th: Auto-Liguilla QF · 7th–10th: Play-In Series · 11th–18th: Eliminated",
+        "ucl_top": 6, "eur_top": 6, "po_ranks": [7, 8, 9, 10], "rel_from": 11
+    },
+    "bra.1": {
+        "name": "Campeonato Brasileiro Série A",
+        "badge": "🇧🇷 38-Match 3-Pt Table",
+        "format": "38 Matchweeks · #1 Tiebreaker: Total Wins (W), then Goal Differential (GD)",
+        "settlement": "90-Min + Stoppage Time Regulation Settlement",
+        "cutlines": "Top 6: Copa Libertadores · 7th–12th: Copa Sudamericana · 17th–20th: Relegated to Série B",
+        "ucl_top": 6, "eur_top": 12, "po_ranks": [], "rel_from": 17
+    },
+    "sco.1": {
+        "name": "Scottish Premiership",
+        "badge": "🏴󠁧󠁢󠁳󠁣󠁴󠁿 33+5 Split Table",
+        "format": "33 Matches -> Top-6 / Bottom-6 Split for Final 5 Matches · #1 Tiebreaker: Goal Differential",
+        "settlement": "90-Min + Stoppage Time Regulation Settlement",
+        "cutlines": "1st–2nd: Champions League · 3rd–4th: Europe · Top 6: Championship Split · 11th: Relegation Playoff · 12th: Relegated",
+        "ucl_top": 2, "eur_top": 5, "po_ranks": [11], "rel_from": 12
+    },
+    "ned.1": {
+        "name": "Dutch Eredivisie",
+        "badge": "🇳🇱 34-Match 3-Pt Table",
+        "format": "34 Matchweeks · #1 Tiebreaker: Goal Differential (GD) · Europe's Highest Goals/Match Domestic League",
+        "settlement": "90-Min + Stoppage Time Regulation Settlement",
+        "cutlines": "Top 2: UEFA Champions League (3rd: UCL Qual) · 4th: Europa League · 5th–8th: Euro Playoff · 16th: Playoff · 17th–18th: Relegated",
+        "ucl_top": 3, "eur_top": 5, "po_ranks": [6, 7, 8, 16], "rel_from": 17
+    },
+    "por.1": {
+        "name": " Liga Portugal Betclic",
+        "badge": "🇵🇹 34-Match 3-Pt Table",
+        "format": "34 Matchweeks · #1 Tiebreaker: Head-to-Head, then Goal Differential",
+        "settlement": "90-Min + Stoppage Time Regulation Settlement",
+        "cutlines": "Top 2: UEFA Champions League · 3rd: Europa League · 4th: Conference League · 16th: Playoff · 17th–18th: Relegated",
+        "ucl_top": 2, "eur_top": 4, "po_ranks": [16], "rel_from": 17
+    },
+    "tur.1": {
+        "name": "Turkish Trendyol Süper Lig",
+        "badge": "🇹🇷 36-Match 3-Pt Table",
+        "format": "19 Clubs (1 Bye per Matchweek) · #1 Tiebreaker: Head-to-Head, then Goal Differential",
+        "settlement": "90-Min + Stoppage Time Regulation Settlement",
+        "cutlines": "Top 2: UEFA Champions League · 3rd: Europa League · 4th: Conference League · 16th–19th: Relegated",
+        "ucl_top": 2, "eur_top": 4, "po_ranks": [], "rel_from": 16
+    },
+    "ksa.1": {
+        "name": "Saudi Pro League (Roshn)",
+        "badge": "🇸🇦 34-Match 3-Pt Table",
+        "format": "34 Matchweeks · #1 Tiebreaker: Head-to-Head, then Goal Differential",
+        "settlement": "90-Min + Stoppage Time Regulation Settlement",
+        "cutlines": "Top 3: AFC Champions League Elite · 16th–18th: Relegated",
+        "ucl_top": 3, "eur_top": 3, "po_ranks": [], "rel_from": 16
+    }
+}
+
 CUP_LGS = {"eng.league_cup", "ger.dfb_pokal", "esp.copa_del_rey", "uefa.champions", "uefa.europa", "uefa.europa.conf", "afc.champions"}
 DOM_LGS = set(LGS) - CUP_LGS
 
@@ -296,6 +460,15 @@ def main():
         plist.sort(reverse=True)
         for _, aid_s in plist[:4]:
             target_aids.add(aid_s)
+
+    # Also ensure every player in soccer_goals.json with an aid is included
+    sg_d = json.load(open("/workspace/bet-lab/data/soccer_goals.json")) if os.path.exists("/workspace/bet-lab/data/soccer_goals.json") else {}
+    for sgr in (sg_d.get("rows") or []):
+        aid_s = str(sgr.get("aid") or "")
+        if aid_s:
+            target_aids.add(aid_s)
+            if aid_s not in scorer_player_meta and sgr.get("player"):
+                scorer_player_meta[aid_s] = {"aid": aid_s, "player": sgr.get("player"), "team": sgr.get("team") or "", "p": sgr.get("p"), "price": sgr.get("price")}
 
     # Also ensure every player in star_watch.json is included
     for sr in (star_w.get("rows") or []):
@@ -619,7 +792,8 @@ def main():
         "updated": now_dt.strftime("%Y-%m-%dT%H:%MZ"),
         "teams": teams_out,
         "players": players_out,
-        "name_index": name_index
+        "name_index": name_index,
+        "comp_meta": COMP_META
     }
     with open("data/hub_profiles.json", "w") as f:
         json.dump(out, f, separators=(",", ":"))
