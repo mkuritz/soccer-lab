@@ -115,6 +115,57 @@ def fetch_one_league(k, p, sport, now):
        "league":((b or {}).get("leagues") or [{}])[0].get("name") or k}
     return k, d
 
+
+# Taça da Liga (Portuguese League Cup): not on the main scoreboard feed, so fixtures/results come from a free public
+# sports-events API (TheSportsDB, league 4509). Clubs are matched to the Primeira Liga feed for ids/logos/form.
+TSDB="https://www.thesportsdb.com/api/v1/json/123"
+def _norm(x):
+    import unicodedata
+    x=unicodedata.normalize("NFKD",x or "").encode("ascii","ignore").decode().lower()
+    for w in ("fc ","sc ","sl ","cd ","cp"," fc"," sc"): x=x.replace(w," ")
+    return " ".join(x.replace("-"," ").split())
+def fetch_taca_liga(now):
+    prev={}
+    try: prev=json.load(open("data/por.taca_liga.json"))
+    except Exception: pass
+    clubs={}
+    for lk in ("por.1","por.taca.portugal"):
+        try:
+            for g in json.load(open(f"data/{lk}.json")).get("games",[]):
+                for sd in ("home","away"): clubs[_norm(g[sd]["name"])]=g[sd]
+            for r in json.load(open(f"data/{lk}.json")).get("standings",[]):
+                clubs.setdefault(_norm(r["name"]),{"id":r["id"],"abbr":r["team"],"name":r["name"],"logo":r["logo"]})
+        except Exception: pass
+    def club(nm):
+        n=_norm(nm); c=clubs.get(n)
+        if not c:
+            c=next((v for k,v in clubs.items() if n and (n in k or k in n)),None)
+        c=dict(c or {"id":None,"abbr":(nm or "")[:3].upper(),"name":nm,"logo":None})
+        c.update({"score":None,"record":None}); return c
+    evs=[]
+    for season in ("2026-2027",):
+        j=get(f"{TSDB}/eventsseason.php?id=4509&s={season}") or {}
+        evs+=j.get("events") or []
+    if not evs: return prev or None
+    out=[]
+    for e in evs:
+        st=(e.get("strStatus") or "").upper()
+        state="post" if st in ("FT","AET","PEN","AP","MATCH FINISHED") else ("pre" if st in ("","NS","NOT STARTED","TBD") else "in")
+        h,a=club(e.get("strHomeTeam")),club(e.get("strAwayTeam"))
+        if state!="pre":
+            h["score"]=e.get("intHomeScore"); a["score"]=e.get("intAwayScore")
+        ts=(e.get("strTimestamp") or "")
+        date=(ts[:16]+"Z") if ts else None
+        det={"post":"FT","pre":"Scheduled"}.get(state, "Penalties" if st=="P" else ("Live" if st not in ("HT",) else "HT"))
+        if state=="post" and st in ("PEN","AP"): det="FT (Pens)"
+        rnd={"0":"Quarterfinal"}.get(str(e.get("intRound") or ""), None)
+        out.append({"id":"tl"+str(e["idEvent"]),"date":date,"name":f"{a['abbr']} @ {h['abbr']}","status":det,"state":state,
+            "venue":e.get("strVenue"),"home":h,"away":a,"line":None,"total":None,"mlh":None,"mld":None,"mla":None,
+            "ov_odds":None,"un_odds":None,"notes":[x for x in [rnd, e.get("strResult") or None] if x],"odds_src":None,"bc":[]})
+    out.sort(key=lambda g:g.get("date") or "")
+    d={"updated":now,"games":out,"news":[],"standings":[],"season":2026,"week":None,"league":"Taça da Liga"}
+    return d
+
 def main(sport):
     now=datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%MZ")
     if sport=="nfl":
@@ -134,6 +185,7 @@ def main(sport):
             "eng.league_cup":"soccer/eng.league_cup",
             "ger.dfb_pokal":"soccer/ger.dfb_pokal",
             "esp.copa_del_rey":"soccer/esp.copa_del_rey",
+            "por.taca.portugal":"soccer/por.taca.portugal",
             "uefa.champions":"soccer/uefa.champions",
             "uefa.europa":"soccer/uefa.europa",
             "afc.champions":"soccer/afc.champions",
@@ -148,6 +200,13 @@ def main(sport):
         if d["games"] or d["standings"]:
             json.dump(d,open(f"data/{k}.json","w"),separators=(",",":"))
             meta["leagues"][k]={"name":d["league"],"games":len(d["games"])}
+    if sport!="nfl":
+        try:
+            tl=fetch_taca_liga(now)
+            if tl and tl.get("games"):
+                json.dump(tl,open("data/por.taca_liga.json","w"),separators=(",",":"))
+                meta["leagues"]["por.taca_liga"]={"name":"Taça da Liga","games":len(tl["games"])}
+        except Exception as e: print("taca da liga note:", e)
     json.dump(meta,open("data/meta.json","w"))
     try:
         import srcscrub

@@ -14,13 +14,14 @@ PROPS = 'https://betlab.sportslabshq.com/data/props_soccer.json'
 ESPN = 'https://site.api.espn.com/apis/site/v2/sports/soccer/{lg}/{p}'
 LGS = [
     "eng.1", "esp.1", "ita.1", "ger.1", "fra.1", "ned.1", "por.1", "tur.1",
-    "sco.1", "bra.1", "eng.league_cup", "ger.dfb_pokal", "esp.copa_del_rey",
+    "sco.1", "bra.1", "eng.league_cup", "ger.dfb_pokal", "esp.copa_del_rey", "por.taca.portugal",
     "uefa.champions", "uefa.europa", "afc.champions", "usa.1", "mex.1", "ksa.1"
 ]
 CUP_DOM_MAP = {
     "eng.league_cup": "eng.1",
     "ger.dfb_pokal": "ger.1",
     "esp.copa_del_rey": "esp.1",
+    "por.taca.portugal": "por.1",
 }
 PER_MATCH = 3
 PER_MATCH_TODAY = 6
@@ -28,6 +29,22 @@ MIN_SCORE = 0.20
 CAL = 0.76   # display calibration from scorers_backtest.py (Oct 2026: 299 listed players scored 28.1% vs 36.9% raw model); ranking unchanged
 
 _ROSTER_CACHE = {}
+
+def _manual_inj():
+    """Club-confirmed absences the roster feed lags on (data/injuries_manual.json). Out/Doubtful players are removed;
+    teammates named in impact.role_to get a role note and are kept even when their recent start % is below the cut."""
+    try:
+        M = json.load(open(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'data', 'injuries_manual.json')))
+    except Exception:
+        return {}, {}
+    out, boost = {}, {}
+    for x in M.get('players', []):
+        if x.get('st') in ('out', 'doubtful'):
+            out[str(x['aid'])] = x
+            for b in ((x.get('impact') or {}).get('role_to') or []):
+                boost.setdefault(str(b), []).append(x['player'])
+    return out, boost
+MAN_OUT, MAN_BOOST = _manual_inj()
 
 def get(u):
     try:
@@ -94,7 +111,7 @@ def fetch_roster(lg, tid, ab):
         aid = str(a.get('id'))
         on[aid] = ab
         inj = ' '.join((i.get('status') or '') for i in a.get('injuries', []) or [])
-        if 'Out' in inj or 'Suspend' in inj:
+        if 'Out' in inj or 'Suspend' in inj or aid in MAN_OUT:
             out.add(aid)
     _ROSTER_CACHE[key] = (on, out)
     return on, out
@@ -290,7 +307,7 @@ def main():
             if s['xi'] and not s['xi'].get(aid):
                 continue
             st_l5 = (pr or {}).get('st_l5') if (pr and pr.get('st_l5') is not None) else ((r.get('u') or {}).get('st') or {}).get('l5')
-            if not s['xi'] and st_l5 is not None and st_l5 < 60:
+            if not s['xi'] and st_l5 is not None and st_l5 < 60 and aid not in MAN_BOOST:
                 continue
             r_eff = dict(r)
             if pr:
@@ -334,7 +351,7 @@ def main():
                     'cal_tier': 'Market + Logs',
                     'best_prop': (pr or {}).get('best_prop'), 'rank_ord': (pr or {}).get('rank_ord', 99),
                     'tags': tags,
-                    'why': why(r_eff, ga, def_rk, pr)
+                    'why': why(r_eff, ga, def_rk, pr) + ([f"role up w/o {', '.join(MAN_BOOST[aid])} (out)"] if aid in MAN_BOOST else [])
                 }
 
         # 2. Score verified roster players from match-log priors (both for unpriced fixtures and cup/continental ties)
@@ -356,11 +373,11 @@ def main():
                 pr = PRIORS.get(aid)
                 if not pr:
                     continue
-                if pr['team'] != club_ab and lg not in ('uefa.champions', 'uefa.europa', 'afc.champions', 'eng.league_cup', 'ger.dfb_pokal', 'esp.copa_del_rey'):
+                if pr['team'] != club_ab and lg not in ('uefa.champions', 'uefa.europa', 'afc.champions', 'eng.league_cup', 'ger.dfb_pokal', 'esp.copa_del_rey', 'por.taca.portugal'):
                     continue
                 if s['xi'] and not s['xi'].get(aid):
                     continue
-                if not s['xi'] and pr.get('st_l5', 0) < 60:
+                if not s['xi'] and pr.get('st_l5', 0) < 60 and aid not in MAN_BOOST:
                     continue
                 is_home = (club_ab == h_ab)
                 opp_ab = a_ab if is_home else h_ab
@@ -402,7 +419,7 @@ def main():
                         'cal_tier': 'Market + Logs' if ov_val is not None else 'Form + Matchup',
                         'best_prop': pr.get('best_prop'), 'rank_ord': pr.get('rank_ord', 99),
                         'tags': tags,
-                        'why': why(synth, ga, def_rk, pr)
+                        'why': why(synth, ga, def_rk, pr) + ([f"role up w/o {', '.join(MAN_BOOST[aid])} (out)"] if aid in MAN_BOOST else [])
                     }
 
         L = []

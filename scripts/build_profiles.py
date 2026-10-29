@@ -12,7 +12,7 @@ from collections import defaultdict
 
 LGS = [
     "eng.1", "esp.1", "ita.1", "ger.1", "fra.1", "ned.1", "por.1", "tur.1",
-    "sco.1", "bra.1", "eng.league_cup", "ger.dfb_pokal", "esp.copa_del_rey",
+    "sco.1", "bra.1", "eng.league_cup", "ger.dfb_pokal", "esp.copa_del_rey", "por.taca.portugal",
     "uefa.champions", "uefa.europa", "afc.champions", "usa.1", "mex.1", "ksa.1"
 ]
 
@@ -87,6 +87,22 @@ COMP_META = {
         "format": "Single-Elimination Spanish Cup · Hosted at Lower-Seeded Club's Ground",
         "settlement": "⚠️ 90-Min + Stoppage Time Settlement for 1X2, Totals & Player Props (Extra Time & PKs excluded from 90-min markets).",
         "cutlines": "Winner Advances · Heavy LaLiga squad rotation in early rounds creates asymmetric value.",
+        "ucl_top": 0, "eur_top": 0, "po_ranks": [], "rel_from": 99
+    },
+    "por.taca.portugal": {
+        "name": "Taça de Portugal 🏆",
+        "badge": "🏆 Single-Leg Knockout Tie (Semis Two-Legged)",
+        "format": "Single-Elimination Portuguese Cup · Lower-Division Clubs Often Host Liga Portugal Opponents",
+        "settlement": "⚠️ 90-Min + Stoppage Time Settlement for 1X2, Totals & Player Props (Extra Time & PKs only apply to 'To Advance').",
+        "cutlines": "Winner Advances · Expect heavy rotation from the big three in early rounds — verify confirmed Starting XI.",
+        "ucl_top": 0, "eur_top": 0, "po_ranks": [], "rel_from": 99
+    },
+    "por.taca_liga": {
+        "name": "Taça da Liga 🏆",
+        "badge": "🏆 Final Four Knockout (Neutral Venue)",
+        "format": "Liga Portugal League Cup · Quarterfinals Single-Leg · Semifinals & Final at a Neutral Venue",
+        "settlement": "⚠️ 90-Min + Stoppage Time Settlement! A 90-minute draw goes straight to Penalties and settles 1X2 as Draw.",
+        "cutlines": "Final Four in Leiria: Semifinals Tue Jan 5 & Wed Jan 6, 2027 · Final Sat Jan 9, 2027 · Rotation risk — verify confirmed Starting XI.",
         "ucl_top": 0, "eur_top": 0, "po_ranks": [], "rel_from": 99
     },
     "uefa.champions": {
@@ -179,7 +195,7 @@ COMP_META = {
     }
 }
 
-CUP_LGS = {"eng.league_cup", "ger.dfb_pokal", "esp.copa_del_rey", "uefa.champions", "uefa.europa", "uefa.europa.conf", "afc.champions"}
+CUP_LGS = {"eng.league_cup", "ger.dfb_pokal", "esp.copa_del_rey", "por.taca.portugal", "por.taca_liga", "uefa.champions", "uefa.europa", "uefa.europa.conf", "afc.champions"}
 DOM_LGS = set(LGS) - CUP_LGS
 
 def season_cutoff(lg):
@@ -314,7 +330,7 @@ def main():
                     }
 
     # 3. Also pull 2025 & 2026 ESPN scoreboards for the 7 leagues not in *_box.json
-    extra_lgs = ["bra.1", "mex.1", "sco.1", "afc.champions", "eng.league_cup", "ger.dfb_pokal", "esp.copa_del_rey"]
+    extra_lgs = ["bra.1", "mex.1", "sco.1", "afc.champions", "eng.league_cup", "ger.dfb_pokal", "esp.copa_del_rey", "por.taca.portugal"]
     with ThreadPoolExecutor(14) as ex:
         sb_results = list(ex.map(fetch_sb, [(l, y) for l in extra_lgs for y in (2025, 2026)]))
 
