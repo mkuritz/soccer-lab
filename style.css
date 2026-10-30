@@ -138,3 +138,5 @@ footer{font-size:11px;color:var(--mut);margin:20px 0}
 .sl-cong-box.HIGH{border-color:#ff5d6c66;background:#ff5d6c12}
 .sl-cong-box.MOD{border-color:#f59e0b66;background:#f59e0b12}
 .sl-cong-box.LOW{border-color:#10b98166;background:#10b98112}
+
+#games>.g{content-visibility:auto;contain-intrinsic-size:auto 460px}

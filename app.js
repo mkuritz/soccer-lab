@@ -3,8 +3,8 @@ const LOGO64=u=>u&&/^https:\/\/a\.espncdn\.com\/i\//.test(u)?"https://a.espncdn.
 const CFG=window.HUB,$=id=>document.getElementById(id),esc=s=>String(s??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
 const BL="https://betlab.sportslabshq.com/";
 const j=(u,d)=>fetch(u+(u.includes("?")?"&":"?")+"t="+Date.now()).then(r=>r.ok?r.json():d).catch(()=>d);
-const et=t=>t?new Date(t).toLocaleString("en-US",{timeZone:"America/New_York",weekday:"short",month:"short",day:"numeric",hour:"numeric",minute:"2-digit"})+" ET":"";
-const etDay=t=>t?new Date(t).toLocaleDateString("en-CA",{timeZone:"America/New_York"}):"";
+const _et0=t=>t?new Date(t).toLocaleString("en-US",{timeZone:"America/New_York",weekday:"short",month:"short",day:"numeric",hour:"numeric",minute:"2-digit"})+" ET":"";const _etM=new Map();const et=t=>{if(t==null||typeof t==="object")return _et0(t);let v=_etM.get(t);if(v===undefined){v=_et0(t);if(_etM.size>5000)_etM.clear();_etM.set(t,v)}return v};
+const _etDay0=t=>t?new Date(t).toLocaleDateString("en-CA",{timeZone:"America/New_York"}):"";const _etDayM=new Map();const etDay=t=>{if(t==null||typeof t==="object")return _etDay0(t);let v=_etDayM.get(t);if(v===undefined){v=_etDay0(t);if(_etDayM.size>5000)_etDayM.clear();_etDayM.set(t,v)}return v};
 const todayET=()=>new Date().toLocaleDateString("en-CA",{timeZone:"America/New_York"});
 const ago=t=>{if(!t)return"";const m=Math.round((Date.now()-new Date(t))/60000);return m<60?m+" min ago":m<1440?Math.round(m/60)+" h ago":Math.round(m/1440)+" d ago"};
 const ALL=CFG.leagues.length>1;if(ALL&&CFG.leagues[0][0]!="all")CFG.leagues.unshift(["all","All"]);
@@ -175,7 +175,12 @@ function render(){
  const recHTML=rec.length?rec.slice(0,10).map(r=>`<div class="tk"><span class="pill">${r.lh?"PRE-GAME LIST HIT · #"+r.rank+" most likely":r.gp?(/Goal|Assist/.test(r.market)?"GOAL HIGHLIGHT":"PROBABLE PLAY")+" · "+esc(r.tier.toUpperCase()):"SPORTS LABS HIGHLIGHTED"}</span> <b>${esc(r.title)}</b>${r.lh?` <span class="mut">our ${Math.round(r.ours*100)}% vs book ${Math.round(r.book*100)}% (${r.price>0?"+"+r.price:r.price}) pre-game</span>`:""}${r.gp?` <b>${r.price>0?"+"+r.price:r.price}</b> <span class="mut">${esc(r.book)} · our chance ${Math.round(r.p*100)}% vs ${Math.round(r.nv*100)}% no-vig · ${esc(r.xi)} · ${esc(r.season)}</span>`:""} <span class="mut">${et(r.start)}</span>${r.lh?` <b class="lv">✅ ${esc(r.lh)}</b>`:""}${window.LR&&r.gp?LR.tag("soccer",r.aid||"",r.market,r.grade&&r.grade.line!=null?r.grade.line:null,r.player||r.title,"",r.start,r.game||""):""}${window.LR&&!r.gp&&!r.lh?LR.tag(r.sport,(r.ref||{}).aid||"",r.market,(r.ref||{}).line,(r.ref||{}).player||r.title.replace(/ (anytime|over|under|to score).*$/i,""),"",r.start):""}</div>`).join(""):"";
  const byLgTake=takeByLeagueHTML();
  $("take").innerHTML=(recHTML+byLgTake)?(recHTML+byLgTake+`<a href="${BL}sharp.html">All Highlighted in Bet Lab →</a>`):LG!="all"?`<div class="mut">No Highlighted ${esc(lgName)} plays for today's slate${scN(LG)?" (see upcoming Likely Scorers below)":""}. Select <b>All</b> for today's highlights across every league. <a href="${BL}sharp.html">Highlighted in Bet Lab →</a></div>`:`<div class="mut">No Highlighted ${CFG.short} plays have cleared our bar right now. When they do, they show here. <a href="${BL}sharp.html">Highlighted in Bet Lab →</a></div>`;
- $("games").innerHTML=G.length?G.map(g=>`<div class="g"><div class="gh"><span class="tm"><img loading="lazy" decoding="async" width="32" height="32" src="${esc(LOGO64(g.away.logo))}" alt="">${esc(g.away.abbr)} ${g.state!="pre"?esc(g.away.score):""}</span><span class="mut">@</span><span class="tm"><img loading="lazy" decoding="async" width="32" height="32" src="${esc(LOGO64(g.home.logo))}" alt="">${esc(g.home.abbr)} ${g.state!="pre"?esc(g.home.score):""}</span><span class="st ${g.state}">${esc(g.status)}</span></div><div class="mut sm">${et(g.date)}${g.venue?" · "+esc(g.venue):""}${g.bc&&g.bc[0]?" · 📺 "+esc(g.bc.filter(Boolean).join(", ")):""}</div>${matchGoalViz(g)}${matchBadges(g)}<ul class="sl">${story(g).map(s=>`<li>${s}</li>`).join("")}</ul>${matchQuickLegs(g)}</div>`).join(""):'<div class="mut">No games in the current window.</div>';
+ {const GC=g=>`<div class="g"><div class="gh"><span class="tm"><img loading="lazy" decoding="async" width="32" height="32" src="${esc(LOGO64(g.away.logo))}" alt="">${esc(g.away.abbr)} ${g.state!="pre"?esc(g.away.score):""}</span><span class="mut">@</span><span class="tm"><img loading="lazy" decoding="async" width="32" height="32" src="${esc(LOGO64(g.home.logo))}" alt="">${esc(g.home.abbr)} ${g.state!="pre"?esc(g.home.score):""}</span><span class="st ${g.state}">${esc(g.status)}</span></div><div class="mut sm">${et(g.date)}${g.venue?" · "+esc(g.venue):""}${g.bc&&g.bc[0]?" · 📺 "+esc(g.bc.filter(Boolean).join(", ")):""}</div>${matchGoalViz(g)}${matchBadges(g)}<ul class="sl">${story(g).map(s=>`<li>${s}</li>`).join("")}</ul>${matchQuickLegs(g)}</div>`,ge=$("games"),tok=window.__gTok=(window.__gTok||0)+1;
+ if(!G.length)ge.innerHTML='<div class="mut">No games in the current window.</div>';
+ else{const N0=8;ge.innerHTML=G.slice(0,N0).map(GC).join("");let i=N0;
+  /* progressive: the rest of the grid is built in small idle batches so no frame blocks; cards are decorated once all are in */
+  const step=()=>{if(tok!==window.__gTok)return;const t0=performance.now();let h="";while(i<G.length&&performance.now()-t0<8)h+=GC(G[i++]);if(h)ge.insertAdjacentHTML("beforeend",h);if(i<G.length)setTimeout(step,0);else if(typeof decorateClickableNames==="function")setTimeout(()=>{if(tok===window.__gTok)decorateClickableNames()},0)};
+  if(i<G.length)setTimeout(step,0)}}
  const S=D.standings||[],grps=[...new Set(S.map(r=>r.grp))];
  $("stand").innerHTML=grps.map(gp=>`<h3>${esc(gp)}</h3><div class="wrap"><table><tr><th>Team</th>${CFG.cols.map(c=>`<th>${c[1]}</th>`).join("")}</tr>${S.filter(r=>r.grp==gp).map(r=>`<tr><td><img class="lg" loading="lazy" decoding="async" width="32" height="32" src="${esc(LOGO64(r.logo))}" alt="">${esc(r.name)}</td>${CFG.cols.map(c=>`<td>${esc(r.st[c[0]]??"")}</td>`).join("")}</tr>`).join("")}</table></div>`).join("")||'<div class="mut">Standings unavailable.</div>';
  if(LG=="all")$("stand").innerHTML='<div class="mut">Select a league above for its table.</div>';
@@ -923,7 +928,7 @@ function decorateClickableNames() {
 const _origRender = render;
 render = function() {
   _origRender();
-  decorateClickableNames();
+  clearTimeout(window.__decT);window.__decT=setTimeout(decorateClickableNames,0);
 };
 
 document.addEventListener("click", e => {
