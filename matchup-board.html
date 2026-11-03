@@ -30,15 +30,15 @@ return `<tr><td><b>${E(r.name)}</b> <span class="tag">${E(r.pos||'—')}</span><
 <td>${r.szn_hits}/${r.szn_n} <span class="mut">${pc(r.szn_hits,r.szn_n)}</span></td>${BIN[c]?'':`<td>${r.szn_avg}</td>`}${c=='goal'?`<td>${r.g2}% <span class="mut">· L5 ${r.g2_l5}/${r.l5.length}</span></td>`:''}
 <td>${proj(r,c)}</td><td>${r.st_l5}% <span class="mut">· szn ${r.st_szn}%</span><div class="mut">${r.mins}</div></td>
 ${r.cols.map(x=>`<td>${x[2]?`<span class="rk ${rkC(x[2],x[3])}">#${x[2]}</span> <span class="mut">${x[1]}</span>`:'<span class="mut">—</span>'}</td>`).join('')}</tr>`}
-function list(){let L=D.comps[comp].cats[cat].best;if(day!='all')L=L.filter(r=>etd(r.time)==day);return L}
-function tbl(k){const c=cat,A=list(),L=k=='best'?A:A.slice().reverse();if(!L.length)return `<div class="mut" style="margin:12px 0">No players for this day.</div>`;const h=L[0].cols.map(x=>`<th>${x[0]}</th>`).join('');
+function list(){let L=D.comps[comp].cats[cat].best.filter(r=>new Date(r.time)>Date.now());if(day!='all')L=L.filter(r=>etd(r.time)==day);return L}
+function tbl(k){const c=cat,A=list(),L=k=='best'?A:A.slice().reverse();if(!L.length)return `<div class="mut" style="margin:12px 0">No upcoming matches for this day (matches drop off at kickoff).</div>`;const h=L[0].cols.map(x=>`<th>${x[0]}</th>`).join('');
 return `<h2 class="${k[0]}">Top ${Math.min(N[k],L.length)} ${k=='best'?'Best':'Worst'} · ${CN[c]}</h2><div class="wrap"><table><tr><th>Player</th><th>Grade</th><th>Line</th><th>L5 hit</th><th>${BIN[c]?'L5 rate':'L5 avg'}</th><th>Season hit</th>${BIN[c]?'':'<th>Season avg</th>'}${c=='goal'?'<th>2+ goals</th>':''}<th>Projection</th><th>Starts (L5)</th>${h}</tr>${L.slice(0,N[k]).map(r=>row(r,c)).join('')}</table></div>${N[k]<L.length?`<button class="more" onclick="N.${k}+=10;draw()">Show 10 more (${Math.min(N[k]+10,L.length)} of ${L.length})</button>`:''}${N[k]>10?`<button class="more" onclick="N.${k}=10;draw()">Back to Top 10</button>`:''}`}
 function draw(){const C=D.comps[comp],ks=['goal','ast','ga','shots','sot','saves'].filter(k=>C.cats[k]);if(!C.cats[cat])cat=ks[0];
 const ds=[...new Set(C.games.map(g=>etd(g.time)))].sort();if(day!='all'&&!ds.includes(day))day='all';
 document.getElementById('days').innerHTML=(ds.length>1?[['all','All days'],...ds.map(d=>[d,d==today?'Today':new Date(d+'T12:00Z').toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'})])]:[]).map(([k,l])=>`<button class="${k==day?'on':''}" onclick="day='${k}';N={best:10,worst:10};draw()">${l}</button>`).join('');
 document.getElementById('tabs').innerHTML=ks.map(k=>`<button class="${k==cat?'on':''}" onclick="cat='${k}';N={best:10,worst:10};draw()">${CN[k]}</button>`).join('');
 document.getElementById('v').innerHTML=tbl('best')+tbl('worst')}
-fetch('data/matchups.json?t='+Date.now()).then(r=>r.json()).then(d=>{D=d;comp=d.default;const C=d.comps[comp];if(C&&C.games.some(g=>etd(g.time)==today))day=today;
+fetch('https://betlab.sportslabshq.com/data/soccer_matchups.json?t='+Date.now()).then(r=>r.json()).then(d=>{D=d;comp=d.default;const C=d.comps[comp];if(C&&C.games.some(g=>etd(g.time)==today))day=today;
 document.getElementById('comp').innerHTML=d.order.map(k=>`<option value="${k}" ${k==comp?'selected':''}>${E(d.comps[k].name)} (${d.comps[k].games.length} matches)</option>`).join('');
 document.getElementById('comp').onchange=e=>{comp=e.target.value;day='all';N={best:10,worst:10};const C=D.comps[comp];if(C.games.some(g=>etd(g.time)==today))day=today;draw()};
 document.getElementById('meta').textContent='updated '+new Date(d.updated).toLocaleString('en-US',{timeZone:'America/New_York',month:'short',day:'numeric',hour:'numeric',minute:'2-digit'})+' ET';draw()})
