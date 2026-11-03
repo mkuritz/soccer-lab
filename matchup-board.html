@@ -38,8 +38,8 @@ const ds=[...new Set(C.games.map(g=>etd(g.time)))].sort();if(day!='all'&&!ds.inc
 document.getElementById('days').innerHTML=(ds.length>1?[['all','All days'],...ds.map(d=>[d,d==today?'Today':new Date(d+'T12:00Z').toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'})])]:[]).map(([k,l])=>`<button class="${k==day?'on':''}" onclick="day='${k}';N={best:10,worst:10};draw()">${l}</button>`).join('');
 document.getElementById('tabs').innerHTML=ks.map(k=>`<button class="${k==cat?'on':''}" onclick="cat='${k}';N={best:10,worst:10};draw()">${CN[k]}</button>`).join('');
 document.getElementById('v').innerHTML=tbl('best')+tbl('worst')}
-fetch('https://betlab.sportslabshq.com/data/soccer_matchups.json?t='+Date.now()).then(r=>r.json()).then(d=>{D=d;comp=d.default;const C=d.comps[comp];if(C&&C.games.some(g=>etd(g.time)==today))day=today;
+fetch('https://betlab.sportslabshq.com/data/soccer_matchups.json?t='+Date.now()).then(r=>r.json()).then(d=>{D=d;comp=d.default;const C=d.comps[comp];if(C&&C.games.some(g=>etd(g.time)==today&&new Date(g.time)>Date.now()))day=today;
 document.getElementById('comp').innerHTML=d.order.map(k=>`<option value="${k}" ${k==comp?'selected':''}>${E(d.comps[k].name)} (${d.comps[k].games.length} matches)</option>`).join('');
-document.getElementById('comp').onchange=e=>{comp=e.target.value;day='all';N={best:10,worst:10};const C=D.comps[comp];if(C.games.some(g=>etd(g.time)==today))day=today;draw()};
+document.getElementById('comp').onchange=e=>{comp=e.target.value;day='all';N={best:10,worst:10};const C=D.comps[comp];if(C.games.some(g=>etd(g.time)==today&&new Date(g.time)>Date.now()))day=today;draw()};
 document.getElementById('meta').textContent='updated '+new Date(d.updated).toLocaleString('en-US',{timeZone:'America/New_York',month:'short',day:'numeric',hour:'numeric',minute:'2-digit'})+' ET';draw()})
 </script></body></html>
