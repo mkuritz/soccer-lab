@@ -41,6 +41,7 @@ async function load(){
   D=await j(`data/${LG}.json`,{games:[],news:[],standings:[]});
   STAND_ALL[LG]=D.standings||[];
  }
+ {const td=etDay(new Date().toISOString());D.games=(D.games||[]).filter(g=>!g.date||etDay(g.date)>=td)} // never show games from before today ET
  applyLiveOverlay(D.games);
  render();
 }
@@ -350,7 +351,7 @@ document.addEventListener("click",e=>{
 (async()=>{
  const refreshLS=()=>j(BL+"data/live_stats.json",null).then(ls=>{if(ls&&ls.g){LSG=ls.g;if(D.games){applyLiveOverlay(D.games);render()}}});
  refreshLS();setInterval(refreshLS,120000);
- j("data/scorers.json",null).then(x=>{SC=x;render()});if(ALL)j(BL+"data/soccer_aidlg.json",{}).then(M=>{ALG=M||{};if(REC.length)render()});
+ j("data/scorers.json",null).then(x=>{SC=x;if(SC&&SC.leagues){const td=etDay(new Date().toISOString());for(const k in SC.leagues){const L=SC.leagues[k];if(L&&L.matches)L.matches=L.matches.filter(m=>!m.start||etDay(m.start)>=td)}}render()});if(ALL)j(BL+"data/soccer_aidlg.json",{}).then(M=>{ALG=M||{};if(REC.length)render()});
  const [ex,tiers,txt,SG,LH]=await Promise.all([CFG.loadExtra?CFG.loadExtra():{},j(BL+"data/edge_tiers.json",{}),fetch(BL+"data/edge_log.jsonl?t="+Date.now()).then(r=>r.ok?r.text():"").catch(()=>""),j(BL+"data/soccer_goals.json",{rows:[]}),j(BL+"data/soccer_list_hits.json",{rows:[]})]);EX=ex||{};
  const now=Date.now(),D0=(([h,m])=>now-((+h%24)*60+ +m)*60e3-new Date().getSeconds()*1e3)(new Date().toLocaleTimeString("en-US",{timeZone:"America/New_York",hour12:false,hour:"2-digit",minute:"2-digit"}).split(":"));REC=txt.split("\n").filter(Boolean).map(l=>{try{return JSON.parse(l)}catch(e){return null}}).filter(p=>p&&(tiers[p.id]||{}).tier==="recommended"&&new Date(p.start||0)>=D0);REC=((SG||{}).rows||[]).filter(r=>r.rec&&new Date(r.start)>=D0).map(r=>Object.assign({gp:1},r)).concat(REC).concat(((LH||{}).rows||[]).filter(r=>new Date(r.start)>=D0).map(r=>Object.assign({lh:r.result},r)));load()})();
 

@@ -196,14 +196,18 @@ def main(sport):
     meta={"updated":now,"leagues":{}}
     with ThreadPoolExecutor(6) as ex:
         results = list(ex.map(lambda kv: fetch_one_league(kv[0], kv[1], sport, now), lgs.items()))
+    from prune_past import prune_games
     for k, d in results:
-        if d["games"] or d["standings"] or k=="por.taca.portugal":   # pages request this key even between rounds
+        d["games"]=prune_games(d["games"])   # never publish games dated before today ET
+        # cups between rounds: still rewrite the file (empty) so old rounds never linger
+        if d["games"] or d["standings"] or k=="por.taca.portugal" or os.path.exists(f"data/{k}.json"):
             json.dump(d,open(f"data/{k}.json","w"),separators=(",",":"))
             meta["leagues"][k]={"name":d["league"],"games":len(d["games"])}
     if sport!="nfl":
         try:
             tl=fetch_taca_liga(now)
-            if tl and tl.get("games"):
+            if tl: tl["games"]=prune_games(tl.get("games"))
+            if tl is not None and os.path.exists("data/por.taca_liga.json") or (tl and tl.get("games")):
                 json.dump(tl,open("data/por.taca_liga.json","w"),separators=(",",":"))
                 meta["leagues"]["por.taca_liga"]={"name":"Taça da Liga","games":len(tl["games"])}
         except Exception as e: print("taca da liga note:", e)
