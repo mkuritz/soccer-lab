@@ -278,7 +278,7 @@ def main():
     player_matches = defaultdict(dict)  # aid -> {eid: match_dict}
     player_info = {}                    # aid -> {aid, player, team, pos, lg}
 
-    box_files = sorted(glob.glob("/workspace/bet-lab-engine/data/soccer/*_box.json"))
+    box_files = sorted(glob.glob(os.environ.get("SOC_BOX_DIR", "/workspace/bet-lab-engine/data/soccer") + "/*_box.json"))
     for bf in box_files:
         db = json.load(open(bf))
         for eid, m in db.items():
