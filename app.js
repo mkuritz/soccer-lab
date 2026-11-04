@@ -8,7 +8,7 @@ const _etDay0=t=>t?new Date(t).toLocaleDateString("en-CA",{timeZone:"America/New
 const todayET=()=>new Date().toLocaleDateString("en-CA",{timeZone:"America/New_York"});
 const ago=t=>{if(!t)return"";const m=Math.round((Date.now()-new Date(t))/60000);return m<60?m+" min ago":m<1440?Math.round(m/60)+" h ago":Math.round(m/1440)+" d ago"};
 const ALL=CFG.leagues.length>1;if(ALL&&CFG.leagues[0][0]!="all")CFG.leagues.unshift(["all","All"]);
-let LG=CFG.leagues[0][0],MF="",SC_VIEW="today",D={},EX={},REC=[],ALG={},SC=null,STAND_ALL={},LSG={};
+let LG=CFG.leagues[0][0],MF="",SC_VIEW="today",D={},EX={},REC=[],ALG={},SC=null,STAND_ALL={},LSG={};let DAY="",RCP={};
 function applyLiveOverlay(games){
  (games||[]).forEach(g=>{
   const lv=LSG[(CFG.short||"soccer")+"|"+g.id];
@@ -42,6 +42,9 @@ async function load(){
   STAND_ALL[LG]=D.standings||[];
  }
  {const td=etDay(new Date().toISOString());D.games=(D.games||[]).filter(g=>!g.date||etDay(g.date)>=td)} // never show games from before today ET
+ const TD=etDay(new Date());if(!DAY)DAY=TD;
+ D.games=DAY<TD?[]:D.games.filter(g=>!g.date||etDay(g.date)==DAY);
+ renderDays(TD);renderRecap(TD);
  applyLiveOverlay(D.games);
  render();
 }
@@ -976,3 +979,25 @@ j("data/hub_profiles.json", null).then(hp => {
     if (D && D.games) decorateClickableNames();
   }
 });
+
+/* ---- Day switcher (prev/next + date tabs). Past days: finished games with recaps; today: today's games; future: upcoming. ---- */
+
+function dayAdd(d,n){const t=new Date(d+"T12:00:00Z");t.setUTCDate(t.getUTCDate()+n);return t.toISOString().slice(0,10)}
+function dayLbl(d,TD){if(d==TD)return"Today";if(d==dayAdd(TD,-1))return"Yesterday";if(d==dayAdd(TD,1))return"Tomorrow";return new Date(d+"T12:00:00Z").toLocaleDateString("en-US",{weekday:"short",month:"short",day:"numeric",timeZone:"UTC"})}
+function renderDays(TD){
+ const ds=[];for(let i=-3;i<=7;i++)ds.push(dayAdd(TD,i));
+ $("days").innerHTML=`<button data-d="${dayAdd(DAY,-1)}" aria-label="Previous day">‹</button>`+ds.map(d=>`<button data-d="${d}" class="${d==DAY?"on":""}${d<TD?" past":""}">${dayLbl(d,TD)}</button>`).join("")+`<button data-d="${dayAdd(DAY,1)}" aria-label="Next day">›</button>`;
+ document.querySelectorAll("#days button").forEach(b=>b.onclick=()=>{DAY=b.dataset.d;MF="";load()});
+}
+async function renderRecap(TD){
+ const el=$("recap");if(DAY>=TD){el.innerHTML="";return}
+ const R=RCP[DAY]||(RCP[DAY]=await j(`data/recaps/${DAY}.json`,{games:[],summary:null}));
+ const gs=(R.games||[]).filter(g=>LG=="all"||g.lg==LG);
+ const sm=R.summary;
+ const hl=m=>`<div class="sm">${m.result=="win"?"✅":m.result=="loss"?"❌":"⏳"} <b>${esc(m.title)}</b> · our chance ${Math.round((m.p||0)*100)}% · ${esc(m.line)}</div>`;
+ el.innerHTML=`<div class="card"><h2>📋 ${esc(dayLbl(DAY,TD))} · Final results &amp; recaps</h2>${sm?`<div class="mut sm" style="margin-bottom:8px">${sm.finals} finals · Highlighted: ${sm.right} right, ${sm.wrong} wrong${sm.highlighted-sm.right-sm.wrong>0?`, ${sm.highlighted-sm.right-sm.wrong} pending`:""}</div>`:""}`+
+  (gs.length?gs.map(g=>`<div class="g" style="margin-bottom:10px"><div class="gh"><span class="tm"><img loading="lazy" width="24" height="24" src="${esc(LOGO64(g.away.logo))}" alt="">${esc(g.away.abbr)} ${g.away.score}</span><span class="mut">@</span><span class="tm"><img loading="lazy" width="24" height="24" src="${esc(LOGO64(g.home.logo))}" alt="">${esc(g.home.abbr)} ${g.home.score}</span><span class="mut sm">${esc(g.status||"FT")}</span></div>
+  <div class="sm" style="margin:6px 0">${esc(g.story)}</div>
+  ${g.highlighted.length?`<div class="sm"><b>Highlighted:</b> ${g.right.length} right · ${g.wrong.length} wrong</div>`+g.highlighted.map(hl).join(""):'<div class="mut sm">No Highlighted plays in this match.</div>'}
+  ${g.standouts&&g.standouts.length?`<div class="mut sm">Standouts: ${g.standouts.map(p=>`${esc(p.name)} (${p.g}G ${p.a}A, ${p.sot} SOT)`).join(" · ")}</div>`:""}</div>`).join(""):'<div class="mut">No finished games recorded for this day'+(LG!="all"?" in this competition":"")+'.</div>')+`</div>`;
+}

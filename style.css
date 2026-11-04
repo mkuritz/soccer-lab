@@ -140,3 +140,5 @@ footer{font-size:11px;color:var(--mut);margin:20px 0}
 .sl-cong-box.LOW{border-color:#10b98166;background:#10b98112}
 
 #games>.g{content-visibility:auto;contain-intrinsic-size:auto 460px}
+
+.days{display:flex;gap:6px;flex-wrap:wrap;margin:8px 0}.days button{background:#151b2b;color:#cfd6e6;border:1px solid #2a3350;border-radius:999px;padding:4px 10px;font-size:12px;cursor:pointer}.days button.on{background:#22c55e;color:#06110a;border-color:#22c55e;font-weight:700}.days button.past{opacity:.8}

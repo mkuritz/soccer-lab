@@ -1,0 +1,26 @@
+name: Soccer Hub overnight (prune + rebuild + recaps)
+# PREVIEW: dispatch-only. sl-scheduler would start it at 3:15 AM ET (main) and 5:15 AM ET (backup); no GitHub cron.
+on:
+  workflow_dispatch:
+    inputs:
+      day: { description: "Recap day (YYYY-MM-DD, ET). Blank = yesterday ET", required: false, default: "" }
+concurrency: { group: soccer-hub-data, cancel-in-progress: false }
+permissions: {}
+jobs:
+  overnight:
+    permissions:
+      contents: write
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - name: Recaps for the finished day (before pruning)
+        run: python scripts/recaps.py ${{ inputs.day }}
+      - name: Rebuild every league and cup file (even with no new fixtures) + prune past games
+        run: python scripts/fetch.py soccer && python scripts/prune_past.py
+      - run: python scripts/scorers.py || echo 'scorers failed, keeping last file'
+        env:
+          SL_BACKUP_KEY: ${{ secrets.SL_BACKUP_KEY }}
+      - run: |
+          git config user.name "sports-labs-bot"; git config user.email "actions@users.noreply.github.com"
+          python3 scripts/srcscrub.py data; git add data; git diff --cached --quiet || (git commit -m "Soccer Hub overnight $(date -u +%FT%TZ)" && git pull --rebase && git push)
