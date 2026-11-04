@@ -22,6 +22,8 @@ jobs:
       - run: python scripts/scorers.py || echo 'scorers failed, keeping last file'
         env:
           SL_BACKUP_KEY: ${{ secrets.SL_BACKUP_KEY }}
+      - name: High Hurdles (real match logs; display only)
+        run: python scripts/high_hurdles.py || echo 'high hurdles failed, keeping last file'
       - run: |
           git config user.name "sports-labs-bot"; git config user.email "actions@users.noreply.github.com"
           python3 scripts/srcscrub.py data; git add data; git diff --cached --quiet || (git commit -m "Soccer Hub overnight $(date -u +%FT%TZ)" && { ok=0; for i in 1 2 3 4 5; do if git pull --rebase -X theirs -q && git push -q; then ok=1; break; fi; git rebase --abort 2>/dev/null || true; sleep $((i*7)); done; [ "$ok" -eq 1 ] || { echo "::error::push failed after 5 tries"; exit 1; }; })

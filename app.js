@@ -194,7 +194,7 @@ function render(){
  if(LG=="all")$("stand").innerHTML='<div class="mut">Select a league above for its table.</div>';
  $("news").innerHTML=(D.news||[]).map(n=>`<div class="nw"><a href="${esc(n.u)}" target="_blank" rel="noopener">${esc(n.t)}</a><div class="mut sm">${et(n.d)}</div></div>`).join("")||'<div class="mut">No headlines.</div>';
  if($("scor"))$("scor").innerHTML=scHTML();
- renderTray();
+ renderTray();renderHH();
  if(CFG.renderExtra)CFG.renderExtra(EX);
 }
 
@@ -1015,4 +1015,20 @@ async function renderRecap(TD){
   ${g.highlighted.length?`<div class="sm"><b>Highlighted:</b> ${g.right.length}-${g.wrong.length}</div>`+g.highlighted.map(m=>hl(m,0)).join(""):'<div class="mut sm">No Highlighted plays in this match.</div>'}
   ${g.standouts&&g.standouts.length?`<div class="mut sm">Standouts: ${g.standouts.map(p=>`${esc(p.name)} (${p.g}G ${p.a}A, ${p.sot} SOT)`).join(" · ")}</div>`:""}</div>`).join(""):'<div class="mut">No finished games recorded for this day'+(LG!="all"?" in this competition":"")+'.</div>')+`</div>`;
  el.innerHTML=top+games;
+}
+
+/* ---- Soccer High Hurdles (display only; real match logs; date-scoped to the selected day, hidden on past days) ---- */
+let HH=null,HH_ALL=false;
+async function renderHH(){
+ const el=$("hh");if(!el)return;if(PAST){el.innerHTML="";return}
+ if(!HH)HH=await j("data/high_hurdles.json",{rows:[]})||{rows:[]};
+ const rs=(HH.rows||[]).filter(r=>etDay(r.start)==DAY&&(LG=="all"||r.lg==LG)&&(!MF||String(r.game)==MF));
+ if(!rs.length){el.innerHTML=`<div class="mut">No player cleared a High Hurdle in 3+ of his last 10 starts for this day${LG!="all"?" in this competition":""}.</div>`;return}
+ const show=HH_ALL?rs:rs.slice(0,10),pc=a=>a[1]?Math.round(a[0]/a[1]*100):0;
+ el.innerHTML=`<div class="mut sm" style="margin-bottom:6px">Players who cleared the hurdle in 3+ of their last 10 starts. Rates are what actually happened in those starts, not a forecast. Updated ${et(HH.updated)}.</div>`+
+  show.map(r=>`<div class="hh-r"><div><b>${plLink(r.player,r.aid,r.team)}</b> <span class="pill">${esc(r.label)}</span> <span class="mut sm">${esc(r.matchup||"")} · ${et(r.start)}</span></div>
+  <div class="sm">Last 10 starts: <b>${r.l10[0]}/${r.l10[1]}</b> (${pc(r.l10)}%) · Last 5: <b>${r.l5[0]}/${r.l5[1]}</b> · Since last season: ${r.all[0]}/${r.all[1]}</div>
+  <div class="mut sm">Last 5: ${r.last.map(x=>`${esc(x.opp)} ${x.g}G ${x.a}A ${x.sot}/${x.sh} SOT/sh`).join(" · ")}</div></div>`).join("")+
+  (rs.length>10?`<button type="button" class="slip-btn" id="hh-more">${HH_ALL?"Show top 10":`Show all ${rs.length}`}</button>`:"");
+ const b=$("hh-more");if(b)b.onclick=()=>{HH_ALL=!HH_ALL;renderHH()};
 }

@@ -146,3 +146,4 @@ footer{font-size:11px;color:var(--mut);margin:20px 0}
 /* past-day look-back: only #recap content for the selected date */
 body.pastday .w>.card,body.pastday .w>.two,body.pastday .w>.lay,body.pastday #comp-banner,body.pastday #mrib,body.pastday #upd,body.pastday #soc-tray{display:none!important}
 .rc-rec{font-size:15px;margin-bottom:8px}.rc-play{margin:4px 0}
+.hh-r{padding:8px 0;border-top:1px solid #222b45}.hh-r:first-of-type{border-top:0}
