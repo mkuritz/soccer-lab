@@ -52,6 +52,24 @@ def highlighted(day):
                      "result": (grades.get(x["id"]) or {}).get("result")})
     return rows
 
+def reason(title, p, res):
+    """One factual line from the box score: role/time on pitch + the stat that settled the play vs its line."""
+    if p.get("starter"): role = f"Started, subbed off {p['off']}" if p.get("off") else "Started, played the full match"
+    elif p.get("on"): role = f"Came on {p['on']}" + (f", subbed off {p['off']}" if p.get("off") else "")
+    else: role = "Came off the bench"
+    m = re.search(r"(Anytime Goal|Shots on Target|Shots|Assists|Goals)(?: (over|under) ([\d.]+))?", title)
+    if not m: return f"{role}. Line: {p['g']} G, {p['a']} A, {p['sot']} SOT from {p['sh']} shots."
+    mk, ou, ln = m.group(1), m.group(2), float(m.group(3)) if m.group(3) else 0.5
+    val, unit = {"Anytime Goal": (p["g"], "goal"), "Goals": (p["g"], "goal"), "Assists": (p["a"], "assist"),
+                 "Shots on Target": (p["sot"], "shot on target"), "Shots": (p["sh"], "shot")}[mk]
+    need = int(ln) + 1
+    def cnt(n, u): return f"{n} {u}" if n == 1 else (f"{n} shots on target" if u == "shot on target" else f"{n} {u}s")
+    if ou == "under": tgt = f"needed {int(ln)} or fewer"
+    else: tgt = f"needed {need}+" if need > 1 else "needed 1"
+    had = cnt(val, unit)
+    if mk == "Shots on Target": had += f" from {cnt(p['sh'], 'shot')}"
+    return f"{role}. {tgt[0].upper()+tgt[1:]}, had {had}."
+
 def recap(lg, e, hl):
     s = get(f"{BASE}/{lg}/summary?event={e['id']}") or {}
     c = e["competitions"][0]; teams = {t["homeAway"]: t for t in c["competitors"]}
@@ -63,20 +81,29 @@ def recap(lg, e, hl):
         tm = (k.get("team") or {}).get("displayName"); mn = (k.get("clock") or {}).get("displayValue")
         if k.get("scoringPlay") and who: goals.append({"min": mn, "team": tm, "player": who[0], "assist": who[1] if len(who) > 1 else None, "og": "own" in t})
         elif t in ("red-card", "yellow-red-card") and who: cards.append({"min": mn, "team": tm, "player": who[0], "type": "Red"})
+    subs = {}   # name -> {"on": minute, "off": minute}
+    for k in s.get("keyEvents", []):
+        if (k.get("type") or {}).get("type") != "substitution": continue
+        who = [p["athlete"]["displayName"] for p in k.get("participants", []) if p.get("athlete")]
+        mn = (k.get("clock") or {}).get("displayValue")
+        if len(who) > 0: subs.setdefault(norm(who[0]), {})["on"] = mn
+        if len(who) > 1: subs.setdefault(norm(who[1]), {})["off"] = mn
     players = {}
     for ro in s.get("rosters", []):
         for p in ro.get("roster", []):
             st = {x["name"]: x.get("value") for x in p.get("stats", [])}
             if not st.get("appearances"): continue
             players[norm(p["athlete"]["displayName"])] = {"name": p["athlete"]["displayName"], "team": ro["team"].get("abbreviation"),
-                "g": int(st.get("totalGoals") or 0), "a": int(st.get("goalAssists") or 0), "sh": int(st.get("totalShots") or 0), "sot": int(st.get("shotsOnTarget") or 0)}
+                "g": int(st.get("totalGoals") or 0), "a": int(st.get("goalAssists") or 0), "sh": int(st.get("totalShots") or 0), "sot": int(st.get("shotsOnTarget") or 0),
+                "starter": bool(p.get("starter")), **subs.get(norm(p["athlete"]["displayName"]), {})}
     mine = []
     for r in hl:
         nm = norm(re.split(r" (Anytime Goal|Shots on Target|Shots|Assists|Goals)", r["title"] or "")[0])
         p = players.get(nm) or next((v for k, v in players.items() if nm and (nm in k or k in nm)), None)
         if not p or r["start"][:16] != e["date"][:16]: continue
         line = f"{p['g']} G · {p['a']} A · {p['sot']}/{p['sh']} SOT/shots"
-        mine.append({"title": r["title"], "p": r["p"], "result": r["result"] or ("pending" ), "line": line})
+        mine.append({"title": r["title"], "p": r["p"], "result": r["result"] or ("pending" ), "line": line,
+                     "why": reason(r["title"] or "", p, r["result"])})
     win = h if hs > as_ else a if as_ > hs else None
     hn, an = h["team"]["displayName"], a["team"]["displayName"]
     if win: story = f"{win['team']['displayName']} beat {(a if win is h else h)['team']['displayName']} {max(hs,as_)}-{min(hs,as_)}."
