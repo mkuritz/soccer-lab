@@ -109,8 +109,10 @@ def recap(lg, e, hl):
     if win: story = f"{win['team']['displayName']} beat {(a if win is h else h)['team']['displayName']} {max(hs,as_)}-{min(hs,as_)}."
     else: story = f"{hn} and {an} drew {hs}-{as_}."
     if goals:
-        story += " Goals: " + "; ".join(f"{g['player']} {g['min']}" + (" (OG)" if g["og"] else "") for g in goals) + "."
-    if cards: story += " Sent off: " + ", ".join(f"{x['player']} {x['min']}" for x in cards) + "."
+        ab = {hn: h["team"].get("abbreviation"), an: a["team"].get("abbreviation")}
+        lab = lambda g: f"own goal for {ab.get(g['team'], g['team'])}" if g["og"] else ab.get(g["team"], g["team"])
+        story += " Goals: " + "; ".join(f"{g['player']} ({lab(g)}) {g['min']}" for g in goals) + "."
+    if cards: story += " Sent off: " + ", ".join(f"{x['player']}" + (f" ({ab2})" if (ab2 := {hn: h['team'].get('abbreviation'), an: a['team'].get('abbreviation')}.get(x.get('team'))) else "") + f" {x['min']}" for x in cards) + "."
     top = sorted(players.values(), key=lambda v: (-v["g"], -v["a"], -v["sot"]))[:3]
     return {"id": e["id"], "lg": lg, "date": e["date"], "status": c["status"]["type"].get("detail"),
             "home": {"abbr": h["team"].get("abbreviation"), "name": hn, "logo": h["team"].get("logo"), "score": hs},
