@@ -9,6 +9,7 @@ League/Cup splits, fixture congestion metrics, and neutral Book A/B/C prices.
 import json, glob, os, math, urllib.request, datetime as dt
 from concurrent.futures import ThreadPoolExecutor
 from collections import defaultdict
+BLD = os.environ.get("BL_DIR", "/workspace/bet-lab/data")
 
 LGS = [
     "eng.1", "esp.1", "ita.1", "ger.1", "fra.1", "ned.1", "por.1", "tur.1",
@@ -417,8 +418,8 @@ def main():
     # 4. Load player_priors.json, scorers.json, star_watch.json, and props_soccer.json
     priors = json.load(open("data/player_priors.json")) if os.path.exists("data/player_priors.json") else {}
     scorers_d = json.load(open("data/scorers.json")) if os.path.exists("data/scorers.json") else {}
-    props_raw = json.load(open("/workspace/bet-lab/data/props_soccer.json")) if os.path.exists("/workspace/bet-lab/data/props_soccer.json") else []
-    star_w = json.load(open("/workspace/bet-lab/data/star_watch.json")) if os.path.exists("/workspace/bet-lab/data/star_watch.json") else {}
+    props_raw = json.load(open(BLD + "/props_soccer.json")) if os.path.exists(BLD + "/props_soccer.json") else []
+    star_w = json.load(open(BLD + "/star_watch.json")) if os.path.exists(BLD + "/star_watch.json") else {}
 
     player_prices = defaultdict(dict)
     for r in props_raw:
@@ -478,7 +479,7 @@ def main():
             target_aids.add(aid_s)
 
     # Also ensure every player in soccer_goals.json with an aid is included
-    sg_d = json.load(open("/workspace/bet-lab/data/soccer_goals.json")) if os.path.exists("/workspace/bet-lab/data/soccer_goals.json") else {}
+    sg_d = json.load(open(BLD + "/soccer_goals.json")) if os.path.exists(BLD + "/soccer_goals.json") else {}
     for sgr in (sg_d.get("rows") or []):
         aid_s = str(sgr.get("aid") or "")
         if aid_s:

@@ -2,7 +2,6 @@ name: Soccer Hub data
 on:
   schedule:
     - cron: "10 10 * * *"        # 6:10 AM ET daily: fixtures, tables, news
-    - cron: "40 15 * * *"        # 11:40 AM ET daily backup
     - cron: "*/30 11-23 * * 0,1,4,5,6" # match windows (Europe Fri/Sat/Sun/Mon + MLS + Saudi Thu)
     - cron: "*/30 0-3 * * 0,1,4" # MLS late finishes (UTC next day)
     - cron: "*/30 16-21 * * 2,3" # Champions League Tue/Wed
@@ -24,4 +23,4 @@ jobs:
           SL_BACKUP_KEY: ${{ secrets.SL_BACKUP_KEY }}
       - run: |
           git config user.name "sports-labs-bot"; git config user.email "actions@users.noreply.github.com"
-          python3 scripts/srcscrub.py data; git add data; git diff --cached --quiet || (git commit -m "Soccer Hub data $(date -u +%FT%TZ)" && git pull --rebase && git push)
+          python3 scripts/srcscrub.py data; git add data; git diff --cached --quiet || (git commit -m "Soccer Hub data $(date -u +%FT%TZ)" && { ok=0; for i in 1 2 3 4 5; do if git pull --rebase -X theirs -q && git push -q; then ok=1; break; fi; git rebase --abort 2>/dev/null || true; sleep $((i*7)); done; [ "$ok" -eq 1 ] || { echo "::error::push failed after 5 tries"; exit 1; }; })

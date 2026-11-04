@@ -1,10 +1,11 @@
 name: Soccer Hub overnight (prune + rebuild + recaps)
-# PREVIEW: dispatch-only. sl-scheduler would start it at 3:15 AM ET (main) and 5:15 AM ET (backup); no GitHub cron.
+# Dispatch-only: sl-scheduler starts it at 3:15 AM ET (main) and 5:15 AM ET (backup); no GitHub cron.
+# hub_profiles.json is rebuilt by bet-lab-engine soccer-profiles.yml (needs private engine box data), dispatched at 3:05 AM ET.
 on:
   workflow_dispatch:
     inputs:
       day: { description: "Recap day (YYYY-MM-DD, ET). Blank = yesterday ET", required: false, default: "" }
-concurrency: { group: soccer-hub-data, cancel-in-progress: false }
+concurrency: { group: soccer-hub-overnight, cancel-in-progress: false }
 permissions: {}
 jobs:
   overnight:
@@ -23,4 +24,4 @@ jobs:
           SL_BACKUP_KEY: ${{ secrets.SL_BACKUP_KEY }}
       - run: |
           git config user.name "sports-labs-bot"; git config user.email "actions@users.noreply.github.com"
-          python3 scripts/srcscrub.py data; git add data; git diff --cached --quiet || (git commit -m "Soccer Hub overnight $(date -u +%FT%TZ)" && git pull --rebase && git push)
+          python3 scripts/srcscrub.py data; git add data; git diff --cached --quiet || (git commit -m "Soccer Hub overnight $(date -u +%FT%TZ)" && { ok=0; for i in 1 2 3 4 5; do if git pull --rebase -X theirs -q && git push -q; then ok=1; break; fi; git rebase --abort 2>/dev/null || true; sleep $((i*7)); done; [ "$ok" -eq 1 ] || { echo "::error::push failed after 5 tries"; exit 1; }; })
