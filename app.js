@@ -8,7 +8,9 @@ const _etDay0=t=>t?new Date(t).toLocaleDateString("en-CA",{timeZone:"America/New
 const todayET=()=>new Date().toLocaleDateString("en-CA",{timeZone:"America/New_York"});
 const ago=t=>{if(!t)return"";const m=Math.round((Date.now()-new Date(t))/60000);return m<60?m+" min ago":m<1440?Math.round(m/60)+" h ago":Math.round(m/1440)+" d ago"};
 const ALL=CFG.leagues.length>1;if(ALL&&CFG.leagues[0][0]!="all")CFG.leagues.unshift(["all","All"]);
-let LG=CFG.leagues[0][0],MF="",SC_VIEW="today",D={},EX={},REC=[],ALG={},SC=null,STAND_ALL={},LSG={};let DAY="",RCP={};
+let LG=CFG.leagues[0][0],MF="",SC_VIEW="today",D={},EX={},REC=[],ALG={},SC=null,STAND_ALL={},LSG={};let DAY="",RCP={},PAST=false;
+/* Past-day tabs: blank every today/upcoming widget so nothing from another date renders (CSS also hides their cards). */
+function clearToday(){["comp-banner","mrib","upd","tac-board","take","scor","games","stand","news","soc-tray","hh"].forEach(id=>{const e=$(id);if(e){e.innerHTML="";e.classList.remove("open")}});window.__gTok=(window.__gTok||0)+1}
 function applyLiveOverlay(games){
  (games||[]).forEach(g=>{
   const lv=LSG[(CFG.short||"soccer")+"|"+g.id];
@@ -44,7 +46,9 @@ async function load(){
  {const td=etDay(new Date().toISOString());D.games=(D.games||[]).filter(g=>!g.date||etDay(g.date)>=td)} // never show games from before today ET
  const TD=etDay(new Date());if(!DAY)DAY=TD;
  D.games=DAY<TD?[]:D.games.filter(g=>!g.date||etDay(g.date)==DAY);
- await renderDays(TD);renderRecap(TD);
+ PAST=DAY<TD;document.body.classList.toggle("pastday",PAST);
+ await renderDays(TD);await renderRecap(TD);
+ if(PAST){clearToday();return}  /* past-day tab: only that date's look-back; no today widgets */
  applyLiveOverlay(D.games);
  render();
 }
@@ -843,6 +847,7 @@ function renderTacBoard(G) {
 
 // Decorate rendered DOM elements in #take, #scor, #games, and #stand so every player, team, and match is clickable
 function decorateClickableNames() {
+  if (PAST) return;
   renderCompBanner();
   const G0 = (D.games || []).slice().sort((x, y) => x.date < y.date ? -1 : 1);
   const G = MF ? G0.filter(g => String(g.id) == MF) : G0;
@@ -995,12 +1000,19 @@ async function renderDays(TD){
 async function renderRecap(TD){
  const el=$("recap");if(DAY>=TD||(RIDX&&!RIDX.has(DAY))){el.innerHTML="";return}
  const R=RCP[DAY]||(RCP[DAY]=await j(`data/recaps/${DAY}.json`,{games:[],summary:null}));
+ if(R.day&&R.day!==DAY){el.innerHTML='<div class="mut">No finished games recorded for this day.</div>';return}
  const gs=(R.games||[]).filter(g=>LG=="all"||g.lg==LG);
- const sm=R.summary;
- const hl=m=>`<div class="sm">${m.result=="win"?"✅":m.result=="loss"?"❌":"⏳"} <b>${esc(m.title)}</b> · our chance ${Math.round((m.p||0)*100)}% · ${esc(m.line)}${m.why?`<div class="mut sm" style="margin-left:22px">${m.result=="win"?"Why it hit":m.result=="loss"?"Why it missed":"So far"}: ${esc(m.why)}</div>`:""}</div>`;
- el.innerHTML=`<div class="card"><h2>📋 ${esc(dayLbl(DAY,TD))} · Final results &amp; recaps</h2>${sm?`<div class="mut sm" style="margin-bottom:8px">${sm.finals} finals · Highlighted: ${sm.right} right, ${sm.wrong} wrong${sm.highlighted-sm.right-sm.wrong>0?`, ${sm.highlighted-sm.right-sm.wrong} pending`:""}</div>`:""}`+
-  (gs.length?gs.map(g=>`<div class="g" style="margin-bottom:10px"><div class="gh"><span class="tm"><img loading="lazy" width="24" height="24" src="${esc(LOGO64(g.away.logo))}" alt="">${esc(g.away.abbr)} ${g.away.score}</span><span class="mut">@</span><span class="tm"><img loading="lazy" width="24" height="24" src="${esc(LOGO64(g.home.logo))}" alt="">${esc(g.home.abbr)} ${g.home.score}</span><span class="mut sm">${esc(g.status||"FT")}</span></div>
+ const lgN=k=>(CFG.leagues.find(l=>l[0]==k)||[,""])[1];
+ const plays=gs.flatMap(g=>(g.highlighted||[]).map(m=>Object.assign({g},m)));
+ const W=plays.filter(m=>m.result=="win").length,L=plays.filter(m=>m.result=="loss").length,P=plays.length-W-L;
+ const dl=new Date(DAY+"T12:00:00Z").toLocaleDateString("en-US",{weekday:"long",month:"short",day:"numeric",timeZone:"UTC"});
+ const hl=(m,ctx)=>`<div class="sm rc-play">${m.result=="win"?"✅":m.result=="loss"?"❌":"⏳"} <b>${esc(m.title)}</b>${ctx?` <span class="mut">· ${esc(m.g.away.abbr)} ${m.g.away.score}-${m.g.home.score} ${esc(m.g.home.abbr)}</span>`:""} · our chance ${Math.round((m.p||0)*100)}% · ${esc(m.line)}${m.why?`<div class="mut sm" style="margin-left:22px">${m.result=="win"?"Why it hit":m.result=="loss"?"Why it missed":"So far"}: ${esc(m.why)}</div>`:""}</div>`;
+ const top=`<div class="card"><h2>🎯 ${esc(dayLbl(DAY,TD))} · Highlighted results</h2><div class="mut sm" style="margin-bottom:8px">${esc(dl)}${LG!="all"?" · "+esc(lgN(LG)):""}</div>`+
+  (plays.length?`<div class="rc-rec"><b>Highlighted: ${W}-${L}</b>${P?` <span class="mut">(${P} pending)</span>`:""}</div>`+plays.map(m=>hl(m,1)).join(""):'<div class="mut">No Highlighted plays for this day'+(LG!="all"?" in this competition":"")+'.</div>')+`</div>`;
+ const games=`<div class="card"><h2>📋 Games covered · Final results &amp; recaps</h2><div class="mut sm" style="margin-bottom:8px">${gs.length} finals</div>`+
+  (gs.length?gs.map(g=>`<div class="g" style="margin-bottom:10px"><div class="gh"><span class="tm"><img loading="lazy" width="24" height="24" src="${esc(LOGO64(g.away.logo))}" alt="">${esc(g.away.abbr)} ${g.away.score}</span><span class="mut">@</span><span class="tm"><img loading="lazy" width="24" height="24" src="${esc(LOGO64(g.home.logo))}" alt="">${esc(g.home.abbr)} ${g.home.score}</span><span class="mut sm">${esc(g.status||"FT")}${LG=="all"&&lgN(g.lg)?" · "+esc(lgN(g.lg)):""}</span></div>
   <div class="sm" style="margin:6px 0"><b>What happened:</b> ${esc(g.story)}</div>
-  ${g.highlighted.length?`<div class="sm"><b>Highlighted:</b> ${g.right.length} right · ${g.wrong.length} wrong</div>`+g.highlighted.map(hl).join(""):'<div class="mut sm">No Highlighted plays in this match.</div>'}
+  ${g.highlighted.length?`<div class="sm"><b>Highlighted:</b> ${g.right.length}-${g.wrong.length}</div>`+g.highlighted.map(m=>hl(m,0)).join(""):'<div class="mut sm">No Highlighted plays in this match.</div>'}
   ${g.standouts&&g.standouts.length?`<div class="mut sm">Standouts: ${g.standouts.map(p=>`${esc(p.name)} (${p.g}G ${p.a}A, ${p.sot} SOT)`).join(" · ")}</div>`:""}</div>`).join(""):'<div class="mut">No finished games recorded for this day'+(LG!="all"?" in this competition":"")+'.</div>')+`</div>`;
+ el.innerHTML=top+games;
 }
