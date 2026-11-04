@@ -190,9 +190,9 @@ function render(){
   const step=()=>{if(tok!==window.__gTok)return;const t0=performance.now();let h="";while(i<G.length&&performance.now()-t0<8)h+=GC(G[i++]);if(h)ge.insertAdjacentHTML("beforeend",h);if(i<G.length)setTimeout(step,0);else if(typeof decorateClickableNames==="function")setTimeout(()=>{if(tok===window.__gTok)decorateClickableNames()},0)};
   if(i<G.length)setTimeout(step,0)}}
  const S=D.standings||[],grps=[...new Set(S.map(r=>r.grp))];
- $("stand").innerHTML=grps.map(gp=>`<h3>${esc(gp)}</h3><div class="wrap"><table><tr><th>Team</th>${CFG.cols.map(c=>`<th>${c[1]}</th>`).join("")}</tr>${S.filter(r=>r.grp==gp).map(r=>`<tr><td><img class="lg" loading="lazy" decoding="async" width="32" height="32" src="${esc(LOGO64(r.logo))}" alt="">${esc(r.name)}</td>${CFG.cols.map(c=>`<td>${esc(r.st[c[0]]??"")}</td>`).join("")}</tr>`).join("")}</table></div>`).join("")||'<div class="mut">Standings unavailable.</div>';
+ if($("stand")){$("stand").innerHTML=grps.map(gp=>`<h3>${esc(gp)}</h3><div class="wrap"><table><tr><th>Team</th>${CFG.cols.map(c=>`<th>${c[1]}</th>`).join("")}</tr>${S.filter(r=>r.grp==gp).map(r=>`<tr><td><img class="lg" loading="lazy" decoding="async" width="32" height="32" src="${esc(LOGO64(r.logo))}" alt="">${esc(r.name)}</td>${CFG.cols.map(c=>`<td>${esc(r.st[c[0]]??"")}</td>`).join("")}</tr>`).join("")}</table></div>`).join("")||'<div class="mut">Standings unavailable.</div>';
  if(LG=="all")$("stand").innerHTML='<div class="mut">Select a league above for its table.</div>';
- $("news").innerHTML=(D.news||[]).map(n=>`<div class="nw"><a href="${esc(n.u)}" target="_blank" rel="noopener">${esc(n.t)}</a><div class="mut sm">${et(n.d)}</div></div>`).join("")||'<div class="mut">No headlines.</div>';
+ $("news").innerHTML=(D.news||[]).map(n=>`<div class="nw"><a href="${esc(n.u)}" target="_blank" rel="noopener">${esc(n.t)}</a><div class="mut sm">${et(n.d)}</div></div>`).join("")||'<div class="mut">No headlines.</div>';}
  if($("scor"))$("scor").innerHTML=scHTML();
  renderTray();renderHH();
  if(CFG.renderExtra)CFG.renderExtra(EX);
@@ -1032,3 +1032,7 @@ async function renderHH(){
   (rs.length>10?`<button type="button" class="slip-btn" id="hh-more">${HH_ALL?"Show top 10":`Show all ${rs.length}`}</button>`:"");
  const b=$("hh-more");if(b)b.onclick=()=>{HH_ALL=!HH_ALL;renderHH()};
 }
+
+/* Sports Analyst section: collapsed by default, choice remembered. Old #stand/#news links go to the new Tables page. */
+(function(){const d=$("analyst");if(d){const K="soccer_analyst_open";d.open=localStorage.getItem(K)==="1";const hint=()=>{const x=d.querySelector(".an-hint");if(x)x.textContent=d.open?"Tap to hide":"Tap to show match cards"};hint();d.addEventListener("toggle",()=>{localStorage.setItem(K,d.open?"1":"0");hint()})}
+ const go=()=>{const h=location.hash;if(h=="#stand"||h=="#news")location.replace("tables.html"+(h=="#news"?"#news-card":""));else if(h=="#games"&&d&&!d.open)d.open=true};go();addEventListener("hashchange",go)})();

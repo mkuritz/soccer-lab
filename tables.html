@@ -1,0 +1,30 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><script src="https://sportslabshq.com/sl/ds.js?v=1"></script><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex"><meta name="theme-color" content="#0b1220">
+<title>Tables &amp; Headlines · Soccer Hub · Sports Labs</title><link rel="stylesheet" href="style.css?v=lb2"><script src="https://sportslabshq.com/sl/sl.js?v=12" defer></script>
+<script src="/sl-neutral.js?v=2" defer></script></head><body><div class="w">
+<header><a class="logo" href="./">⚽ Soccer <b>Hub</b></a><span class="mut sm">Tournaments, Cups, Leagues, Group Stakes &amp; Tactical Edges</span><nav><a href="stars.html">⭐ Star Watchlist</a><a href="https://betlab.sportslabshq.com/#sport=soccer">Bet Lab · Soccer</a><a href="https://betlab.sportslabshq.com/sharp.html">Highlighted</a><a href="https://sportslabshq.com/">Sports Labs</a></nav></header>
+<div id="lgs"></div>
+<div class="two"><div class="card" id="stand-card"><h2>🏆 Table &amp; Group Cutlines</h2><div id="stand"></div></div><div class="card" id="news-card"><h2>📰 Headlines</h2><div id="news"></div></div></div>
+<footer>Sports Labs model with public fixtures, tables, news, sportsbook lines and kickoff forecasts. Weather: <a href="https://www.met.no/en" rel="noopener" target="_blank">MET Norway (CC BY 4.0)</a>. Not betting advice. 21+ only; if you or someone you know has a gambling problem, call 1-800-GAMBLER.<br>Soccer Hub · A <a href="https://sportslabshq.com/">Sports Labs</a> Product · © 2026 Sports Labs</footer></div>
+<script>
+/* Tables & Headlines page (moved off the Soccer Hub home). Same data files as the home page. */
+const $=id=>document.getElementById(id),esc=s=>String(s??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const j=(u,d)=>fetch(u+"?t="+Date.now()).then(r=>r.ok?r.json():d).catch(()=>d);
+const et=t=>t?new Date(t).toLocaleString("en-US",{timeZone:"America/New_York",weekday:"short",month:"short",day:"numeric",hour:"numeric",minute:"2-digit"})+" ET":"";
+const LOGO64=u=>u&&/^https:\/\/a\.espncdn\.com\/i\//.test(u)?"https://a.espncdn.com/combiner/i?img="+encodeURIComponent(u.replace("https://a.espncdn.com",""))+"&h=64&w=64":u;
+const LGS=[
+ ["eng.1","Premier League"],["esp.1","LALIGA"],["ita.1","Serie A"],["ger.1","Bundesliga"],["fra.1","Ligue 1"],
+ ["eng.league_cup","Carabao Cup 🏆"],["ger.dfb_pokal","DFB-Pokal 🏆"],["esp.copa_del_rey","Copa del Rey 🏆"],["por.taca_liga","Taça da Liga 🏆"],["por.taca.portugal","Taça de Portugal 🏆"],
+ ["uefa.champions","Champions League"],["uefa.europa","Europa League"],["afc.champions","AFC Champions League"],
+ ["usa.1","MLS"],["mex.1","Liga MX"],["bra.1","Brasileirão"],["sco.1","Scottish Prem"],["ned.1","Eredivisie"],
+ ["por.1","Primeira Liga"],["tur.1","Süper Lig"],["ksa.1","Saudi Pro League"]
+],COLS=[["rank","#"],["gamesPlayed","GP"],["wins","W"],["ties","D"],["losses","L"],["pointDifferential","GD"],["points","Pts"]];
+let LG=(location.hash.match(/lg=([\w.]+)/)||[])[1]||"eng.1";
+async function load(){
+ $("lgs").innerHTML=LGS.map(([k,n])=>`<button data-l="${k}" class="${k==LG?"on":""}">${n}</button>`).join("");
+ document.querySelectorAll("#lgs button").forEach(b=>b.onclick=()=>{LG=b.dataset.l;history.replaceState(null,"","#lg="+LG);load()});
+ const D=await j(`data/${LG}.json`,{standings:[],news:[]}),S=D.standings||[],grps=[...new Set(S.map(r=>r.grp))];
+ $("stand").innerHTML=grps.map(gp=>`<h3>${esc(gp)}</h3><div class="wrap"><table><tr><th>Team</th>${COLS.map(c=>`<th>${c[1]}</th>`).join("")}</tr>${S.filter(r=>r.grp==gp).map(r=>`<tr><td><img class="lg" loading="lazy" width="32" height="32" src="${esc(LOGO64(r.logo))}" alt="">${esc(r.name)}</td>${COLS.map(c=>`<td>${esc(r.st[c[0]]??"")}</td>`).join("")}</tr>`).join("")}</table></div>`).join("")||'<div class="mut">No table for this competition yet.</div>';
+ $("news").innerHTML=(D.news||[]).map(n=>`<div class="nw"><a href="${esc(n.u)}" target="_blank" rel="noopener">${esc(n.t)}</a><div class="mut sm">${et(n.d)}</div></div>`).join("")||'<div class="mut">No headlines.</div>';
+}
+load();
+</script><script src="https://sportslabshq.com/sl/sl-sports.js?v=2"></script><script src="navcfg.js"></script><script src="side.js"></script></body></html>
