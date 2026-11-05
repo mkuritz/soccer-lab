@@ -153,7 +153,7 @@ function matchQuickLegs(g){
 
 function takeByLeagueHTML(){
  if(!SC||!SC.leagues)return"";
- const td=todayET();
+ const td=DAY||todayET(),isTd=td==todayET();
  const nm=k=>(CFG.leagues.find(l=>l[0]==k)||[,k])[1];
  const allKeys=CFG.leagues.filter(l=>l[0]!="all").map(l=>l[0]);
  const ks=LG=="all"?allKeys:[LG];
@@ -164,7 +164,7 @@ function takeByLeagueHTML(){
   const rows=ms.flatMap(m=>(m.players||[]).filter(p=>p.best_prop).slice(0,3).map(p=>Object.assign({matchup:m.matchup,start:m.start,game:m.game},p)));
   const useRows=rows.length?rows:ms.flatMap(m=>(m.players||[]).slice(0,2).map(p=>Object.assign({matchup:m.matchup,start:m.start,game:m.game},p)));
   if(!useRows.length)return;
-  blocks.push(`<div style="margin-bottom:10px"><div style="display:flex;align-items:center;gap:8px;padding:4px 8px;margin-bottom:5px;background:#162642;border-left:3px solid var(--acc);border-radius:5px;font-weight:800;font-size:12.5px"><span>⚽ ${esc(nm(k))}</span><span class="mut sm" style="font-weight:600">${ms.length} ${ms.length==1?"match":"matches"} today</span></div>`+useRows.map(p=>{
+  blocks.push(`<div style="margin-bottom:10px"><div style="display:flex;align-items:center;gap:8px;padding:4px 8px;margin-bottom:5px;background:#162642;border-left:3px solid var(--acc);border-radius:5px;font-weight:800;font-size:12.5px"><span>⚽ ${esc(nm(k))}</span><span class="mut sm" style="font-weight:600">${ms.length} ${ms.length==1?"match":"matches"} ${isTd?"today":"this day"}</span></div>`+useRows.map(p=>{
    const propTxt=p.best_prop||`Anytime Goal (${Math.round(p.p*100)}% model)`;
    const why0=(p.why&&p.why[0])?p.why[0]:"";
    return `<div class="tk" style="padding:4px 6px"><span class="pill">HIGHLIGHTED</span> <b>${esc(p.player)}</b> <span class="mut">(${esc(p.team)} · ${esc(p.matchup)})</span> <span class="sbadge pk">🎯 ${esc(propTxt)}</span> <span class="mut sm">${esc(why0)} · ${et(p.start)}</span></div>`;
@@ -178,7 +178,7 @@ function render(){
  renderRibbon(G0);
  const G=MF?G0.filter(g=>String(g.id)==MF):G0;
  $("upd").innerHTML=`Data updated ${ago(D.updated)} (${et(D.updated)}) · ${esc(D.league||"")}${D.week?" · Week "+D.week:""} ${D.season||""}`;
- const rec=REC.filter(r=>CFG.recSport.includes(r.sport)&&(LG=="all"||recLg(r)==LG)&&(!MF||String(r.game||(r.ref||{}).game||"")==MF));
+ const rec=REC.filter(r=>CFG.recSport.includes(r.sport)&&(LG=="all"||recLg(r)==LG)&&(!DAY||!r.start||etDay(r.start)==DAY)&&(!MF||String(r.game||(r.ref||{}).game||"")==MF));
  const lgName=(CFG.leagues.find(l=>l[0]==LG)||[,""])[1];
  const recHTML=rec.length?rec.slice(0,10).map(r=>`<div class="tk"><span class="pill">${r.lh?"PRE-GAME LIST HIT · #"+r.rank+" most likely":r.gp?(/Goal|Assist/.test(r.market)?"GOAL HIGHLIGHT":"PROBABLE PLAY")+" · "+esc(r.tier.toUpperCase()):"SPORTS LABS HIGHLIGHTED"}</span> <b>${esc(r.title)}</b>${r.lh?` <span class="mut">our ${Math.round(r.ours*100)}% vs book ${Math.round(r.book*100)}% (${r.price>0?"+"+r.price:r.price}) pre-game</span>`:""}${r.gp?` <b>${r.price>0?"+"+r.price:r.price}</b> <span class="mut">${esc(r.book)} · our chance ${Math.round(r.p*100)}% vs ${Math.round(r.nv*100)}% no-vig · ${esc(r.xi)} · ${esc(r.season)}</span>`:""} <span class="mut">${et(r.start)}</span>${r.lh?` <b class="lv">✅ ${esc(r.lh)}</b>`:""}${window.LR&&r.gp?LR.tag("soccer",r.aid||"",r.market,r.grade&&r.grade.line!=null?r.grade.line:null,r.player||r.title,"",r.start,r.game||""):""}${window.LR&&!r.gp&&!r.lh?LR.tag(r.sport,(r.ref||{}).aid||"",r.market,(r.ref||{}).line,(r.ref||{}).player||r.title.replace(/ (anytime|over|under|to score).*$/i,""),"",r.start):""}</div>`).join(""):"";
  const byLgTake=takeByLeagueHTML();
@@ -227,6 +227,7 @@ function scHTML(){
  const ks=LG=="all"?allKeys:[LG],nm=k=>(CFG.leagues.find(l=>l[0]==k)||[,k])[1];
  let M=ks.flatMap(k=>((SC.leagues[k]||{}).matches||[]).map(m=>Object.assign({lg:k},m))).filter(m=>new Date(m.start)>Date.now()-4*3600e3&&!(LIVE[m.game]&&LIVE[m.game].state=="post")&&!(new Date(m.start)<Date.now()-7200000&&!LIVE[m.game])).sort((a,b)=>a.start<b.start?-1:1);
  if(MF)M=M.filter(m=>String(m.game)==MF);
+ if(DAY)M=M.filter(m=>etDay(m.start)==DAY); // day tabs: only that ET day's matches
  if(!M.length)return `<div class="mut">Not enough player data yet for upcoming ${esc(LG=="all"?"":nm(LG)+" ")}matches. This fills in once player markets and recent match logs are posted.</div>`;
  const todayM=M.filter(m=>etDay(m.start)==td);
  const effView=(SC_VIEW=="today"&&todayM.length)?SC_VIEW:"all";
