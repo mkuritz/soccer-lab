@@ -206,6 +206,39 @@ def parse_line_ml(line_str, team_ab):
             return None
     return None
 
+def carry_live(out, now):
+    """Keep matches that have kicked off but are not final. The rebuild only scores pre-game rows, so a match
+    would vanish at kickoff; carry its pre-game list (unchanged) from the last file until the match is final."""
+    try:
+        prev = json.load(open('data/scorers.json'))
+    except Exception:
+        return
+    for lg, L in (prev.get('leagues') or {}).items():
+        if lg not in out['leagues']:
+            continue
+        cur = out['leagues'][lg]
+        have = {str(m['game']) for m in cur['matches']}
+        for m in L.get('matches', []):
+            gid = str(m.get('game'))
+            try:
+                st = ts(m['start'])
+            except Exception:
+                continue
+            if gid in have or st > now or now - st > dt.timedelta(hours=4):
+                continue
+            d = get(ESPN.format(lg=lg, p=f'summary?event={gid}'))
+            try:
+                state = d['header']['competitions'][0]['status']['type']['state']
+            except Exception:
+                state = None
+            if state == 'in' or (state == 'pre' and now - st < dt.timedelta(minutes=45)):
+                m['carried'] = 1
+                cur['matches'].append(m)
+                have.add(gid)
+        cur['matches'].sort(key=lambda g: g['start'])
+        cur['n_matches'] = len(cur['matches'])
+        cur['n_players'] = sum(len(g['players']) for g in cur['matches'])
+
 def main():
     now = dt.datetime.now(dt.timezone.utc)
     today_et = (now - dt.timedelta(hours=4)).strftime('%Y-%m-%d')
@@ -439,6 +472,7 @@ def main():
                 L.append(g)
         L.sort(key=lambda g: g['start'])
         out['leagues'][lg] = {'matches': L, 'n_matches': len(L), 'n_players': sum(len(g['players']) for g in L)}
+    carry_live(out, now)
     json.dump(out, open('data/scorers.json', 'w'), separators=(',', ':'))
     try:
         import srcscrub

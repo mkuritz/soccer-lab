@@ -200,7 +200,7 @@ function render(){
 
 const scN=l=>SC&&SC.leagues&&SC.leagues[l]?SC.leagues[l].n_players:0;
 function renderMatchBlock(m,nm){
- return `<div class="tk" style="margin-bottom:10px"><div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap"><b>${esc(m.matchup)}</b> <span class="mut">${esc(nm(m.lg))} · ${et(m.start)}</span>${(m.match_tags||[]).map(t=>`<span class="${badgeCls(t)}">${esc(t)}</span>`).join("")}</div>${m.players.map(p=>{
+ return `<div class="tk" style="margin-bottom:10px"><div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap"><b>${esc(m.matchup)}</b> <span class="mut">${esc(nm(m.lg))} · ${et(m.start)}</span>${liveHead(m)}${(m.match_tags||[]).map(t=>`<span class="${badgeCls(t)}">${esc(t)}</span>`).join("")}</div>${m.players.map(p=>{
   const lid=`s|${m.game}|${p.aid}`;
   const on=SLIP.some(x=>x.id==lid);
   const propShort=p.best_prop?p.best_prop.split("·")[0].trim():"Anytime Goal";
@@ -215,8 +215,8 @@ function renderMatchBlock(m,nm){
   const ourW=Math.min(100,Math.round((ourP/maxScale)*1000)/10);
   const refLeft=Math.min(97,Math.max(3,Math.round((refP/maxScale)*1000)/10));
   const edgePts=Math.round((p.p-refP)*1000)/10;
-  const vizBar=`<div class="sc-viz-bar" title="Our Calibrated Chance ${Math.round(p.p*100)}% vs ${mktRaw!=null?'Book Implied':'Baseline Prior'} ${Math.round(refP*100)}%"><div class="sc-viz-track"><div class="sc-viz-fill" style="width:${ourW}%"></div><div class="sc-viz-tick" style="left:${refLeft}%" title="${mktRaw!=null?'Book Implied':'Prior'}: ${Math.round(refP*100)}%"></div></div><div class="sc-viz-meta"><span class="our">Our <b>${Math.round(p.p*100)}%</b></span><span class="mkt">${mktRaw!=null?'Book Imp':'Prior'} <b>${Math.round(refP*100)}%</b></span>${edgePts>=0.5?`<span class="edg">+${edgePts.toFixed(1)}% Edge</span>`:""}</div></div>`;
-  return `<div class="sc-row"><div style="flex:1;min-width:0"><div><span class="pill">${Math.round(p.p*100)}% TO SCORE</span> <b>${esc(p.player)}</b> <span class="mut">${esc(p.team)}${p.pos?" "+esc(p.pos):""} · ${esc(p.xi)}${p.price!=null?` · Book ${p.price>0?"+"+p.price:p.price}`:` · Fair ${toAm(p.p)}`}</span></div>${vizBar}<div style="margin-top:3px">${bestBadge}${calBadge}${tags}</div><div class="mut sm" style="margin-top:2px">${esc(p.why.join(" · "))}</div></div><button type="button" class="slip-btn ${on?"on":""}" data-slip='${esc(JSON.stringify(legObj))}'>${on?"✓ In Slip":"+ Slip"}</button></div>`;
+  const vizBar=`<div class="sc-viz-bar" title="Our Calibrated Chance ${Math.round(p.p*100)}% vs ${mktRaw!=null?'Book Implied':'Baseline Prior'} ${Math.round(refP*100)}%"><div class="sc-viz-track"><div class="sc-viz-fill" style="width:${ourW}%"></div><div class="sc-viz-tick" style="left:${refLeft}%" title="${mktRaw!=null?'Book Implied':'Prior'}: ${Math.round(refP*100)}%"></div></div><div class="sc-viz-meta"><span class="our">Our <b>${Math.round(p.p*100)}%</b></span><span class="mkt">${mktRaw!=null?'Book Imp':'Prior'} <b>${Math.round(refP*100)}%</b></span>${edgePts>=0.5?`<span class="edg">+${edgePts.toFixed(1)}% Edge</span>`:""}</div>${liveStrip(m,p)}</div>`;
+  return `<div class="sc-row"><div style="flex:1;min-width:0"><div><span class="pill">${Math.round(p.p*100)}% TO SCORE</span> <b>${esc(p.player)}</b> <span class="mut">${esc(p.team)}${p.pos?" "+esc(p.pos):""} · ${esc(p.xi)}${p.price!=null?` · Book ${p.price>0?"+"+p.price:p.price}`:` · Fair ${toAm(p.p)}`}</span></div>${vizBar}<div style="margin-top:3px">${bestBadge}${calBadge}${tags}</div><div class="mut sm" style="margin-top:2px">${esc(p.why.join(" · "))}</div></div>${LIVE[m.game]&&LIVE[m.game].state=="in"?`<span class="slip-btn lv-only" title="Game in progress: pre-game slip adds are closed">Live only</span>`:`<button type="button" class="slip-btn ${on?"on":""}" data-slip='${esc(JSON.stringify(legObj))}'>${on?"✓ In Slip":"+ Slip"}</button>`}</div>`;
  }).join("")}</div>`;
 }
 
@@ -225,7 +225,7 @@ function scHTML(){
  const td=todayET();
  const allKeys=CFG.leagues.filter(l=>l[0]!="all").map(l=>l[0]);
  const ks=LG=="all"?allKeys:[LG],nm=k=>(CFG.leagues.find(l=>l[0]==k)||[,k])[1];
- let M=ks.flatMap(k=>((SC.leagues[k]||{}).matches||[]).map(m=>Object.assign({lg:k},m))).filter(m=>new Date(m.start)>Date.now()-7200000).sort((a,b)=>a.start<b.start?-1:1);
+ let M=ks.flatMap(k=>((SC.leagues[k]||{}).matches||[]).map(m=>Object.assign({lg:k},m))).filter(m=>new Date(m.start)>Date.now()-4*3600e3&&!(LIVE[m.game]&&LIVE[m.game].state=="post")&&!(new Date(m.start)<Date.now()-7200000&&!LIVE[m.game])).sort((a,b)=>a.start<b.start?-1:1);
  if(MF)M=M.filter(m=>String(m.game)==MF);
  if(!M.length)return `<div class="mut">Not enough player data yet for upcoming ${esc(LG=="all"?"":nm(LG)+" ")}matches. This fills in once player markets and recent match logs are posted.</div>`;
  const todayM=M.filter(m=>etDay(m.start)==td);
@@ -1036,3 +1036,68 @@ async function renderHH(){
 /* Sports Analyst section: collapsed by default, choice remembered. Old #stand/#news links go to the new Tables page. */
 (function(){const d=$("analyst");if(d){const K="soccer_analyst_open";d.open=localStorage.getItem(K)==="1";const hint=()=>{const x=d.querySelector(".an-hint");if(x)x.textContent=d.open?"Tap to hide":"Tap to show match cards"};hint();d.addEventListener("toggle",()=>{localStorage.setItem(K,d.open?"1":"0");hint()})}
  const go=()=>{const h=location.hash;if(h=="#stand"||h=="#news")location.replace("tables.html"+(h=="#news"?"#news-card":""));else if(h=="#games"&&d&&!d.open)d.open=true};go();addEventListener("hashchange",go)})();
+
+/* Live take: keep a match's pre-game list up while it is in progress and show what is happening.
+   Score, minute and each listed player's goals / shots / shots on target come from the public live match feed (refreshed every 60s while a listed match is live).
+   Live chance = pre-game chance with the expected rate scaled to the minutes left:
+     rate per 90 = -ln(1 - pre-game chance); live chance = 1 - exp(-rate x minutes left / 90). Already hit = Cleared; subbed off or not in the match = Off. */
+var LIVE={};
+const LV_API=(lg,p)=>`https://site.api.espn.com/apis/site/v2/sports/soccer/${lg}/${p}`;
+function lvMin(c){if(!c)return null;const m=String(c).match(/(\d+)'(?:\s*\+\s*(\d+))?/);return m?(+m[1]+(+m[2]||0)):null}
+function pAtLeast(lam,k){if(k<=0)return 1;let t=Math.exp(-lam),c=t;for(let i=1;i<k;i++){t*=lam/i;c+=t}return Math.max(0,1-c)}
+function lamFor(q,k){let lo=0,hi=12;for(let i=0;i<50;i++){const mid=(lo+hi)/2;pAtLeast(mid,k)<q?lo=mid:hi=mid}return (lo+hi)/2}
+function liveHead(m){const L=LIVE[m.game];if(!L||L.state!="in")return"";return `<span class="lv-badge">● LIVE ${esc(L.score)}${L.clock?" · "+esc(L.clock):""}</span>`}
+function liveStrip(m,p){
+ const L=LIVE[m.game];if(!L||L.state!="in")return"";
+ const P=(L.pl||{})[String(p.aid)];
+ const left=L.min==null?null:(L.half?45:Math.max(0,90-L.min));
+ const chips=[];let take="",cls="";
+ if(P){
+  if(P.g!=null)chips.push(`${P.g} G`);
+  if(P.sh!=null)chips.push(`${P.sh} shots`);
+  if(P.sot!=null)chips.push(`${P.sot} SOT`);
+  if(P.g>=1){take="Goal: Cleared ✓";cls="ok"}
+  else if(P.off){take=P.off;cls="off"}
+  else if(left!=null){const lam=-Math.log(1-Math.min(0.97,p.p||0.2));const lp=1-Math.exp(-lam*left/90);take=`Goal ${Math.round(lp*100)}% (was ${Math.round(p.p*100)}%)`}
+  // second hurdle from the best prop, e.g. "1+ SOT (+100)" or "2+ Shots (-160)"
+  const bp=(p.best_prop||"").match(/(\d+)\+\s*(SOT|Shots)\s*\(([+-]\d+)\)/i);
+  if(bp){const k=+bp[1],isSot=/sot/i.test(bp[2]),cur=isSot?P.sot:P.sh;
+   if(cur!=null){const lab=`${k}+ ${isSot?"SOT":"Shots"}`;
+    if(cur>=k)take+=(take?" · ":"")+`${lab}: Cleared ✓`;
+    else if(P.off)take+=(take&&take!=P.off?" · ":"")+(take==P.off?"":`${lab}: Off`);
+    else if(left!=null){const lam=lamFor(imp(+bp[3]),k);take+=(take?" · ":"")+`${lab} ${Math.round(pAtLeast(lam*left/90,k-cur)*100)}%`}}}
+ }
+ return `<div class="lv-strip"><span class="lv-dot">●</span> <b>${esc(L.score)}</b>${L.clock?` <span class="mut">${esc(L.clock)}</span>`:""}${chips.length?` · ${chips.join(" · ")}`:""}${take?` <span class="lv-take ${cls}" title="Live take: pre-game rate scaled to minutes left; cleared once hit; Off if subbed off or not playing">Live take: ${esc(take)}</span>`:""}</div>`;
+}
+async function livePoll(){
+ if(!SC||!SC.leagues||PAST)return false;
+ const now=Date.now(),want={};
+ for(const k in SC.leagues)for(const m of (SC.leagues[k].matches||[])){const t=new Date(m.start).getTime();if(t<=now+60e3&&t>now-4*3600e3&&!(LIVE[m.game]&&LIVE[m.game].state=="post"))(want[k]=want[k]||[]).push(m)}
+ const lgs=Object.keys(want);if(!lgs.length)return false;
+ await Promise.all(lgs.map(async lg=>{
+  const sb=await fetch(LV_API(lg,"scoreboard")).then(r=>r.ok?r.json():null).catch(()=>null);if(!sb)return;
+  await Promise.all(want[lg].map(async m=>{
+   const ev=(sb.events||[]).find(e=>String(e.id)==String(m.game));if(!ev)return;
+   const st=ev.status||{},ty=st.type||{},c=(ev.competitions||[])[0]||{};
+   const cs=(c.competitors||[]).slice().sort((a,b)=>a.homeAway=="away"?-1:1);
+   const L={state:ty.state=="post"&&!ty.completed?"pre":ty.state,clock:ty.state=="in"?(ty.name=="STATUS_HALFTIME"?"HT":(st.displayClock||"")):"",half:ty.name=="STATUS_HALFTIME",score:cs.map(x=>`${(x.team||{}).abbreviation||""} ${x.score??""}`).join(" - "),pl:{}};
+   L.min=L.half?45:lvMin(L.clock);
+   if(L.state=="in"){
+    const sm=await fetch(LV_API(lg,"summary?event="+m.game)).then(r=>r.ok?r.json():null).catch(()=>null);
+    for(const t of (sm&&sm.rosters)||[])for(const a of t.roster||[]){
+     const v={};(a.stats||[]).forEach(x=>v[x.name]=x.value);const has=k=>v[k]!=null?+v[k]:null;
+     L.pl[String((a.athlete||{}).id)]={g:has("totalGoals"),sh:has("totalShots"),sot:has("shotsOnTarget"),off:a.subbedOut?"Off (subbed off)":(!a.starter&&!a.subbedIn)?"Off (not playing)":(v.redCards>0?"Off (sent off)":"")};
+    }
+   }
+   LIVE[m.game]=L;
+  }));
+ }));
+ return Object.values(LIVE).some(L=>L.state=="in");
+}
+(function liveLoop(){
+ let busy=false;
+ const tick=async()=>{if(busy)return;busy=true;let live=false;try{live=await livePoll();if($("scor")&&!PAST&&Object.keys(LIVE).length){$("scor").innerHTML=scHTML();if(typeof decorateClickableNames==="function")decorateClickableNames()}}catch(e){}busy=false;
+  setTimeout(tick,document.hidden?180e3:live?60e3:300e3)};
+ setTimeout(tick,2500);
+ document.addEventListener("visibilitychange",()=>{if(!document.hidden)tick()});
+})();
