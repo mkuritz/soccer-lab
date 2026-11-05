@@ -1050,7 +1050,7 @@ function liveHead(m){const L=LIVE[m.game];if(!L||L.state!="in")return"";return `
 function liveStrip(m,p){
  const L=LIVE[m.game];if(!L||L.state!="in")return"";
  const P=(L.pl||{})[String(p.aid)];
- const left=L.min==null?null:(L.half?45:Math.max(0,90-L.min));
+ const left=L.min==null?null:(L.half||L.period===1?45:Math.max(0,90-L.min));
  const chips=[];let take="",cls="";
  if(P){
   if(P.g!=null)chips.push(`${P.g} G`);
@@ -1066,6 +1066,9 @@ function liveStrip(m,p){
     if(cur>=k)take+=(take?" · ":"")+`${lab}: Cleared ✓`;
     else if(P.off)take+=(take&&take!=P.off?" · ":"")+(take==P.off?"":`${lab}: Off`);
     else if(left!=null){const lam=lamFor(imp(+bp[3]),k);take+=(take?" · ":"")+`${lab} ${Math.round(pAtLeast(lam*left/90,k-cur)*100)}%`}}}
+ } else if(Object.keys(L.pl||{}).length){
+  // Roster loaded but this listed player is not in it (not selected) → Off
+  take="Off (not playing)";cls="off";
  }
  return `<div class="lv-strip"><span class="lv-dot">●</span> <b>${esc(L.score)}</b>${L.clock?` <span class="mut">${esc(L.clock)}</span>`:""}${chips.length?` · ${chips.join(" · ")}`:""}${take?` <span class="lv-take ${cls}" title="Live take: pre-game rate scaled to minutes left; cleared once hit; Off if subbed off or not playing">Live take: ${esc(take)}</span>`:""}</div>`;
 }
@@ -1078,9 +1081,9 @@ async function livePoll(){
   const sb=await fetch(LV_API(lg,"scoreboard")).then(r=>r.ok?r.json():null).catch(()=>null);if(!sb)return;
   await Promise.all(want[lg].map(async m=>{
    const ev=(sb.events||[]).find(e=>String(e.id)==String(m.game));if(!ev)return;
-   const st=ev.status||{},ty=st.type||{},c=(ev.competitions||[])[0]||{};
+   const c=(ev.competitions||[])[0]||{},st=ev.status||c.status||{},ty=st.type||{};
    const cs=(c.competitors||[]).slice().sort((a,b)=>a.homeAway=="away"?-1:1);
-   const L={state:ty.state=="post"&&!ty.completed?"pre":ty.state,clock:ty.state=="in"?(ty.name=="STATUS_HALFTIME"?"HT":(st.displayClock||"")):"",half:ty.name=="STATUS_HALFTIME",score:cs.map(x=>`${(x.team||{}).abbreviation||""} ${x.score??""}`).join(" - "),pl:{}};
+   const L={state:ty.state=="post"&&!ty.completed?"pre":ty.state,clock:ty.state=="in"?(ty.name=="STATUS_HALFTIME"?"HT":(st.displayClock||"")):"",half:ty.name=="STATUS_HALFTIME",period:st.period||0,score:cs.map(x=>`${(x.team||{}).abbreviation||""} ${x.score??""}`).join(" - "),pl:{}};
    L.min=L.half?45:lvMin(L.clock);
    if(L.state=="in"){
     const sm=await fetch(LV_API(lg,"summary?event="+m.game)).then(r=>r.ok?r.json():null).catch(()=>null);
