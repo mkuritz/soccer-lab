@@ -8,6 +8,8 @@ Adds: opponent goals conceded/90 & league defense rank, penalty-taker & set-piec
 season + h2h rates for display, Out/Suspended filter.
 Writes data/scorers.json. Real data only: players without >=5 recent matches are skipped."""
 import json, math, urllib.request, datetime as dt, sys, os, re
+from zoneinfo import ZoneInfo
+ET = ZoneInfo('America/New_York')
 from concurrent.futures import ThreadPoolExecutor
 
 PROPS = 'https://betlab.sportslabshq.com/data/props_soccer.json'
@@ -241,7 +243,7 @@ def carry_live(out, now):
 
 def main():
     now = dt.datetime.now(dt.timezone.utc)
-    today_et = (now - dt.timedelta(hours=4)).strftime('%Y-%m-%d')
+    today_et = now.astimezone(ET).strftime('%Y-%m-%d')
     P = []
     if os.path.exists('/workspace/bet-lab/data/props_soccer.json'):
         try:
@@ -458,7 +460,7 @@ def main():
         L = []
         for g in M.values():
             try:
-                g_day = (ts(g['start']) - dt.timedelta(hours=4)).strftime('%Y-%m-%d')
+                g_day = ts(g['start']).astimezone(ET).strftime('%Y-%m-%d')
             except Exception:
                 g_day = ''
             all_p = sorted(g['players'].values(), key=lambda x: (-(1 if x.get('best_prop') else 0), x.get('rank_ord', 99), -x['raw']))
