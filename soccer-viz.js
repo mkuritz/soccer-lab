@@ -6,7 +6,8 @@
 const VIEWS={'viz-shotmap':'Shot Map','viz-xgflow':'xG Flow','viz-zones':'Attack Zones'};
 const E=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const F=(v,d=2)=>v==null||!isFinite(v)?'–':(+v).toFixed(d);const P=v=>v==null||!isFinite(v)?'–':(v*100).toFixed(1)+'%';
-const J=u=>fetch(u).then(r=>r.ok?r.json():null).catch(()=>null);
+const SAFE=/^(?:hub_profiles|recaps\/index|recaps\/\d{4}-\d{2}-\d{2}|[a-z]{2,4}\.[a-z0-9_.]{1,24})$/;
+const J=k=>SAFE.test(k)?fetch(`./data/${k}.json`).then(r=>r.ok?r.json():null).catch(()=>null):Promise.resolve(null);
 let PR=null,GAMES=null,RECAPS=null,root=null;const st={team:'',game:'',win:'L10',side:'home',rgame:''};
 const CSS=`<style id="svcss">body.viz-on .w>*:not(header):not(#viz-root):not(footer):not(#sl-modal-root){display:none!important}
 #viz-root{--vb:#121614;--vp:#1a1f1c;--vl:#2a332e;--vm:#3ee6a8;--vt:#e8efe9;--vs:#9aa8a0;color:var(--vt)}
@@ -36,9 +37,9 @@ function agg(L){const n=L.length,s=k=>L.reduce((a,x)=>a+(typeof x[k]==='number'?
  const sh=s('sh'),g=s('gf');return{n,gf:g/n,ga:s('ga')/n,sh:sh/n,sot:s('sot')/n,conv:sh?g/sh:null,acc:sh?s('sot')/sh:null}}
 const imp=o=>typeof o!=='number'||!isFinite(o)||Math.abs(o)<100?null:o>0?100/(o+100):-o/(-o+100);
 async function load(){if(PR)return;const lg=(window.HUB&&HUB.leagues||[]).map(l=>l[0]).filter(k=>k!=='all');
- const [pr,idx,...ls]=await Promise.all([J('data/hub_profiles.json'),J('data/recaps/index.json'),...lg.map(k=>J('data/'+k+'.json'))]);PR=pr||{teams:{}};
+ const [pr,idx,...ls]=await Promise.all([J('hub_profiles'),J('recaps/index'),...lg.map(k=>J(k))]);PR=pr||{teams:{}};
  const now=Date.now()-3*36e5;GAMES=ls.flatMap((d,i)=>((d&&d.games)||[]).map(g=>Object.assign({_lg:lg[i]},g))).filter(g=>g.state==='pre'&&Date.parse(g.date)>=now).sort((a,b)=>a.date<b.date?-1:1);
- const days=((idx&&idx.days)||[]).slice(-5).reverse();const R=await Promise.all(days.map(d=>J('data/recaps/'+d+'.json')));
+ const days=((idx&&idx.days)||[]).slice(-5).reverse();const R=await Promise.all(days.map(d=>J('recaps/'+d)));
  RECAPS=R.flatMap(r=>((r&&r.games)||[]).map(g=>Object.assign({_day:r.day},g))).filter(g=>g.status==='FT'||/FT|AET|Pen/i.test(g.status||''))}
 const ctlGame=()=>`<label>Match<select data-k="game">${GAMES.map(g=>`<option value="${E(g.id)}"${g.id===st.game?' selected':''}>${E(g.away.abbr+' @ '+g.home.abbr+' · '+(g._lg||''))}</option>`).join('')}</select></label>`;
 const seg=(k,opts)=>`<div class="vz-seg" role="group" aria-label="${E(k)}">${opts.map(([v,l])=>`<button type="button" data-k="${k}" data-v="${E(v)}" aria-pressed="${st[k]===v}">${E(l)}</button>`).join('')}</div>`;

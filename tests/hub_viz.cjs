@@ -1,7 +1,7 @@
 // jsdom checks for integrated Soccer visuals. Run: NODE_PATH=/workspace/visual-preview-tests/node_modules node tests/hub_viz.cjs
 const fs=require('fs'),path=require('path'),{JSDOM}=require('jsdom');const R=path.join(__dirname,'..');let ok=0,bad=0;
 const t=(c,m)=>{c?ok++:(bad++,console.log('FAIL',m))};
-const fetchStub=u=>{const f=path.join(R,String(u).split('?')[0]);return Promise.resolve(fs.existsSync(f)?{ok:true,json:async()=>JSON.parse(fs.readFileSync(f,'utf8'))}:{ok:false,json:async()=>null})};
+const fetchStub=u=>{const f=path.join(R,String(u).split('?')[0].replace(/^\.\//,''));return Promise.resolve(fs.existsSync(f)?{ok:true,json:async()=>JSON.parse(fs.readFileSync(f,'utf8'))}:{ok:false,json:async()=>null})};
 (async()=>{for(const v of['viz-shotmap','viz-xgflow','viz-zones']){
  const dom=new JSDOM('<!doctype html><body><div class="w"><header>h</header><div class="lay">main</div><footer>f</footer></div></body>',{url:'https://x.test/index.html#'+v,runScripts:'outside-only'});
  const w=dom.window;w.fetch=fetchStub;w.HUB={leagues:[['all','All'],['eng.1','PL'],['esp.1','L'],['uefa.champions','UCL'],['uefa.europa','UEL']]};
