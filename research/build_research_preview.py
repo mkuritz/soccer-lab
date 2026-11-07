@@ -39,6 +39,7 @@ def main():
     if os.path.exists(out): shutil.rmtree(out)
     shutil.copytree(REPO, out, ignore=lambda d, names: [n for n in names if d == REPO and n in SKIP])
     shutil.copy(os.path.join(REPO, 'research', 'soccer-research.js'), os.path.join(out, 'soccer-research.js'))
+    shutil.copy(os.path.join(REPO, 'research', 'statsbomb-logo.png'), os.path.join(out, 'statsbomb-logo.png'))
     blob = json.dumps(samples, separators=(',', ':')).replace('</', '<\\/')
     open(os.path.join(out, 'research-events.js'), 'w').write('/* LOCAL RESEARCH PREVIEW ONLY - StatsBomb Open Data, not for redistribution */\nwindow.SL_RESEARCH_EVENTS=' + blob + ';\n')
     idx = os.path.join(out, 'index.html'); h = open(idx).read()
