@@ -19,3 +19,5 @@ Compact primary visual tabs with active item always visible; other native tools 
 Native shared account bootstrap (`https://sportslabshq.com/sl/sl.js?v=12`) is retained on each new route, matching original Hub pages; no plan, allowance or shared entitlement implementation was changed. DOM tests do not run external account/authentication scripts.
 
 Final modal/access integration polish: native account bootstrap retained; native HTML dialogs reserve bottom access-banner space. Final27-file scoped scan0 issues.110 combined Hub assertions still pass. No browser visual QA is claimed.
+
+Paired visual helper/renderer/style/navigation references use1106ux3 to prevent mixed cached versions. NFL Low Hurdles JS/CSS use1106layout2. Cache-version13-file scan0 issues; all110 Hub assertions and the actual-gate tests still pass.
