@@ -8,7 +8,7 @@ Base: main e55b209. Branch preview/soccer-hub-viz-1106.
 - No event feed is connected, so status text sits above the empty pitch. `evOk` requires license_ok===true; there is no data/events/ dir.
 
 ## Local research preview (noncommercial, offline)
-- `python3 research/build_research_preview.py --events /workspace/wt/soccer-event-adapter-1106/research/soccer-events/preview/3943043.json /workspace/wt/soccer-event-adapter-1106/research/soccer-events/preview/3869685.json`
+- `python3 research/build_research_preview.py --match-ids 3943043 3869685`
   writes `/workspace/research-preview/soccer-hub-1106/` (outside the repo, CNAME removed, robots noindex,nofollow, RESEARCH_PREVIEW.txt).
 - Real StatsBomb Open Data samples (Euro 2024 final, WC 2022 final), with license_ok=false preserved.
   - Shot map: located shots sized by provider xG, player filter, distance bars, xG by player.

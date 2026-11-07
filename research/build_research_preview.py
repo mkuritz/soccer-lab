@@ -4,22 +4,24 @@ StatsBomb Open Data samples (normalized by the soccer-event adapter).
 
 Output goes OUTSIDE the repo/publish root (default /workspace/research-preview/soccer-hub-1106).
 The published Hub never references research/ or research-events.js, so it stays fail-closed.
-Usage: python3 research/build_research_preview.py --events <adapter>/research/soccer-events/preview/*.json [--out DIR]
+Usage: python3 research/build_research_preview.py --match-ids 3943043 3869685 [--out DIR]
+(reads only files listed in the fixed adapter preview directory ADAPTER_PREVIEW)
 """
 import argparse, json, os, shutil, sys
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SKIP = {'.git', 'tests', 'research', 'audit', 'scripts', '__pycache__'}
 
-import re
-ALLOWED = re.compile(r'^/workspace/wt/[A-Za-z0-9._-]+/research/soccer-events/preview/\d{1,12}\.json$')
+ADAPTER_PREVIEW = '/workspace/wt/soccer-event-adapter-1106/research/soccer-events/preview'
 
 def need(cond, msg):
     if not cond: raise SystemExit('invalid research sample: ' + msg)
 
-def load(p):
-    rp = os.path.realpath(p)
-    need(ALLOWED.match(rp) is not None, 'path must be an adapter preview file: ' + rp)
-    with open(rp, encoding='utf-8') as fh:
+def load(match_id):
+    need(str(match_id).isdigit() and len(str(match_id)) <= 12, 'match id must be digits')
+    names = {n for n in os.listdir(ADAPTER_PREVIEW) if n.endswith('.json')}
+    fname = '%d.json' % int(match_id)
+    need(fname in names, 'no adapter preview file for match ' + str(match_id))
+    with open(os.path.join(ADAPTER_PREVIEW, fname), encoding='utf-8') as fh:
         d = json.load(fh)
     need(d.get('schema') == 'sl-soccer-events/1', 'schema')
     need(d.get('historical') is True and d.get('coverage', {}).get('live') is False, 'only historical samples')
@@ -29,11 +31,11 @@ def load(p):
     return d
 
 def main():
-    ap = argparse.ArgumentParser(); ap.add_argument('--events', nargs='+', required=True)
+    ap = argparse.ArgumentParser(); ap.add_argument('--match-ids', nargs='+', required=True)
     ap.add_argument('--out', default='/workspace/research-preview/soccer-hub-1106'); a = ap.parse_args()
     out = os.path.abspath(a.out)
     if out == REPO or out.startswith(REPO + os.sep): sys.exit('refusing: output must be outside the repo/publish root')
-    samples = [load(p) for p in a.events]
+    samples = [load(m) for m in a.match_ids]
     if os.path.exists(out): shutil.rmtree(out)
     shutil.copytree(REPO, out, ignore=lambda d, names: [n for n in names if d == REPO and n in SKIP])
     shutil.copy(os.path.join(REPO, 'research', 'soccer-research.js'), os.path.join(out, 'soccer-research.js'))
