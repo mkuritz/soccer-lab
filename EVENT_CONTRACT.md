@@ -41,3 +41,10 @@ shows "unavailable" until a verified adapter writes files matching this contract
 6. Attribution: the `source.attribution` string must be displayed wherever the data renders. If `redistribution` forbids caching, the adapter must not commit files to the repo.
 7. Provider terms apply to each source on its own, even where the section is noncommercial. Set `license_ok` only after those terms are reviewed.
 8. Validate with `node tests/event_contract.cjs <file>` before wiring a file in.
+
+## Research preview mode (added after the adapter landed)
+- Adapter: `/workspace/wt/soccer-event-adapter-1106` @ `c511eb6` (`SOCCER_EVENT_ADAPTER.md`). Its files use provider-native match/team IDs, `historical: true` and `source.license_ok: false`.
+- The published Hub stays fail-closed: no `data/events/`, the `evOk` gate is unchanged, and `index.html` has no research scripts.
+- `research/build_research_preview.py` writes a LOCAL build outside the repo (default `/workspace/research-preview/soccer-hub-1106`, CNAME removed). It embeds the samples as `research-events.js` and adds `research/soccer-research.js`. A "Historical research sample (local only)" source toggle then shows real shot maps, xG flow, field tilt, largest chances and zone views, with StatsBomb attribution.
+- The samples are never auto-joined to current ESPN fixtures. The timeline is continuous elapsed time; tooltips show the source period clock. Own goals are not covered; shootouts are excluded; missing xG shows as n/a.
+- Before any publication: the StatsBomb logo is required (none is bundled) and raw/normalized event redistribution must be cleared.

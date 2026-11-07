@@ -11,7 +11,7 @@ const J=k=>SAFE.test(k)?fetch(`./data/${k}.json`).then(r=>r.ok?r.json():null).ca
 let PR=null,GAMES=null,RECAPS=null,root=null,PRN='',EV=null;
 /* Event-feed integration point (see EVENT_CONTRACT.md). EV stays null until a verified adapter writes data/events/<game_id>.json. */
 const evOk=e=>e&&e.schema==='sl-soccer-events/1'&&Array.isArray(e.shots)&&e.source&&e.source.license_ok===true;
-function evDots(ab){if(!EV)return'';const sh=EV.shots.filter(x=>x.team===ab&&x.x>=0&&x.x<=105&&x.y>=0&&x.y<=68);return `<svg class="vz-ev" viewBox="-2 -2 109 72" style="position:absolute;inset:0" aria-label="${sh.length} located shots">${sh.map(x=>`<circle cx="${x.x}" cy="${x.y}" r="${(0.8+Math.sqrt(x.xg||0)*3).toFixed(2)}" fill="${x.outcome==='goal'?'#3ee6a8':'none'}" stroke="#3ee6a8" stroke-width=".3"><title>${E(x.minute+"' "+(x.player||'')+' xG '+(x.xg??'–'))}</title></circle>`).join('')}</svg>`}const st={team:'',game:'',win:'L10',side:'home',rgame:''};
+function evDots(ab){if(!EV)return'';const sh=EV.shots.filter(x=>x.team===ab&&x.x>=0&&x.x<=105&&x.y>=0&&x.y<=68);return `<svg class="vz-ev" viewBox="-2 -2 109 72" style="position:absolute;inset:0" aria-label="${sh.length} located shots">${sh.map(x=>`<circle cx="${x.x}" cy="${x.y}" r="${(0.8+Math.sqrt(x.xg||0)*3).toFixed(2)}" fill="${x.outcome==='goal'?'#3ee6a8':'none'}" stroke="#3ee6a8" stroke-width=".3"><title>${E(x.minute+"' "+(x.player||'')+' xG '+(x.xg??'–'))}</title></circle>`).join('')}</svg>`}const st={team:'',game:'',win:'L10',side:'home',rgame:'',src:'hub'};
 const CSS=`<style id="svcss">body.viz-on .w>*:not(header):not(#viz-root):not(footer):not(#sl-modal-root){display:none!important}
 #viz-root{--vb:#121614;--vp:#1a1f1c;--vl:#2a332e;--vm:#3ee6a8;--vt:#e8efe9;--vs:#9aa8a0;color:var(--vt)}
 #viz-root .vz-tabs{display:flex;gap:6px;flex-wrap:wrap;margin:0 0 12px}#viz-root .vz-tabs a{padding:9px 14px;border-radius:99px;border:1px solid var(--vl);background:var(--vp);color:var(--vs);font-weight:700;text-decoration:none;min-height:40px;box-sizing:border-box}
@@ -83,13 +83,17 @@ function zones(){const g=curGame();if(!g)return '<div class="vz-card">No upcomin
  <div class="vz-card"><h3>Recorded attack vs defence (season)</h3><div style="overflow-x:auto"><table class="vz-t"><tr><th>Metric</th><th>${E(a)} all</th><th>${E(a)} away</th><th>${E(h)} all</th><th>${E(h)} home</th></tr>
  ${rows.map(([l,k,d])=>`<tr><td>${l}</td><td>${c(aa,k,d)}</td><td>${c(aw,k,d)}</td><td>${c(ah,k,d)}</td><td>${c(hh,k,d)}</td></tr>`).join('')}</table></div>
  <div class="vz-mut">Matches: ${aa?aa.n:0} (${E(a)}), ${ah?ah.n:0} (${E(h)}). Shots against are not recorded per match, so concession uses goals against only. Higher attack and higher goals against are both worse for the defending side.</div></div>`}
+/* All dynamic values are escaped with E(); markup is parsed inertly (scripts never run) and swapped in. */
+function paint(html){const doc=new DOMParser().parseFromString('<body>'+html+'</body>','text/html');doc.querySelectorAll('script,iframe,object,embed').forEach(n=>n.remove());root.replaceChildren(...doc.body.childNodes)}
 async function show(){const v=location.hash.slice(1);const on=Object.hasOwn(VIEWS,v);document.body.classList.toggle('viz-on',on);if(!root)return;root.hidden=!on;if(!on)return;
  root.innerHTML='<div class="vz-card">Loading recorded data…</div>';try{await load()}catch(e){}
  const g0=v==='viz-xgflow'?null:curGame();EV=null;if(g0&&/^\d{1,12}$/.test(String(g0.id))){const e=await J('events/'+g0.id);EV=evOk(e)?e:null}
- const body=v==='viz-shotmap'?shotmap():v==='viz-xgflow'?flow():zones();
- root.innerHTML=`<nav class="vz-tabs" aria-label="Soccer visuals">${Object.entries(VIEWS).map(([k,l])=>`<a href="#${k}"${k===v?' aria-current="page"':''}>${l}</a>`).join('')}</nav>${body}<div class="vz-mut">Recorded snapshots (hub data ${E(PR&&PR.updated||'')} UTC), not live prices. Informational only.</div>`}
+ const RS=window.SL_RESEARCH_EVENTS&&window.SoccerVizResearch?window.SoccerVizResearch:null;if(!RS)st.src='hub';
+ const srcSeg=RS?`<div class="vz-ctl">${seg('src',[['hub','Current hub data'],['res','Historical research sample (local only)']])}</div>`:'';
+ const body=srcSeg+(RS&&st.src==='res'?RS.render(v,st,{pitch,E,NA,seg,F,P}):v==='viz-shotmap'?shotmap():v==='viz-xgflow'?flow():zones());
+ paint(`<nav class="vz-tabs" aria-label="Soccer visuals">${Object.entries(VIEWS).map(([k,l])=>`<a href="#${k}"${k===v?' aria-current="page"':''}>${l}</a>`).join('')}</nav>${body}<div class="vz-mut">Recorded snapshots (hub data ${E(PR&&PR.updated||'')} UTC), not live prices. Informational only.</div>`)}
 function init(){if(!document.getElementById('svcss'))document.head.insertAdjacentHTML('beforeend',CSS);const hd=document.querySelector('.w>header');root=document.createElement('section');root.id='viz-root';root.hidden=true;root.setAttribute('aria-live','polite');(hd?hd.after(root):document.body.prepend(root));
- root.addEventListener('change',e=>{const k=e.target.dataset.k;if(k){st[k]=e.target.value;show()}});
+ root.addEventListener('change',e=>{const k=e.target.dataset.k;if(k){st[k]=e.target.value;show().then(()=>{const n=root.querySelector(`select[data-k="${k}"]`);n&&n.focus()})}});
  root.addEventListener('click',e=>{const b=e.target.closest('button[data-k]');if(b){st[b.dataset.k]=b.dataset.v;show().then(()=>{const n=root.querySelector(`button[data-k="${b.dataset.k}"][data-v="${b.dataset.v}"]`);n&&n.focus()})}});
  addEventListener('hashchange',show);show()}
 document.readyState==='loading'?document.addEventListener('DOMContentLoaded',init):init();
