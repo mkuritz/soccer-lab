@@ -25,3 +25,6 @@ Base: main e55b209. Branch preview/soccer-hub-viz-1106.
 ## Aikido
 - soccer-viz.js, redirect, tests, research renderer: 0 issues. An innerHTML finding was fixed via inert DOMParser + replaceChildren; an earlier SSRF finding was fixed with fixed data paths.
 - research/build_research_preview.py: 1 residual AIK_py_LFI (sev 50) on open(). The input is a local operator CLI argument, realpath-checked against an allowlist regex of adapter preview files (`/etc/passwd` is refused, tested). Not suppressed.
+
+## Publish note (2026-11-09)
+Research builder/scripts and StatsBomb samples stay out of the published Hub tree. In-Hub Shot Map / xG Flow / Attack Zones ship fail-closed on public hub snapshots only; located-event layers remain labeled unavailable until a license-cleared adapter writes `data/events/`.

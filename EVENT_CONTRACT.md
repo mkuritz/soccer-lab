@@ -48,3 +48,6 @@ shows "unavailable" until a verified adapter writes files matching this contract
 - `research/build_research_preview.py` writes a LOCAL build outside the repo (default `/workspace/research-preview/soccer-hub-1106`, CNAME removed). It embeds the samples as `research-events.js` and adds `research/soccer-research.js`. A "Historical research sample (local only)" source toggle then shows real shot maps, xG flow, field tilt, largest chances and zone views, with StatsBomb attribution.
 - The samples are never auto-joined to current ESPN fixtures. The timeline is continuous elapsed time; tooltips show the source period clock. Own goals are not covered; shootouts are excluded; missing xG shows as n/a.
 - Before any publication: the StatsBomb logo is required (none is bundled) and raw/normalized event redistribution must be cleared.
+
+## Publish note (2026-11-09)
+Research builder/scripts and StatsBomb samples stay out of the published Hub tree. In-Hub Shot Map / xG Flow / Attack Zones ship fail-closed on public hub snapshots only; located-event layers remain labeled unavailable until a license-cleared adapter writes `data/events/`.
