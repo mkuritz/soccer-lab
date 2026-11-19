@@ -8,7 +8,7 @@ const _etDay0=t=>t?new Date(t).toLocaleDateString("en-CA",{timeZone:"America/New
 const todayET=()=>new Date().toLocaleDateString("en-CA",{timeZone:"America/New_York"});
 const ago=t=>{if(!t)return"";const m=Math.round((Date.now()-new Date(t))/60000);return m<60?m+" min ago":m<1440?Math.round(m/60)+" h ago":Math.round(m/1440)+" d ago"};
 const ALL=CFG.leagues.length>1;if(ALL&&CFG.leagues[0][0]!="all")CFG.leagues.unshift(["all","All"]);
-let LG=CFG.leagues[0][0],MF="",SC_VIEW="today",D={},EX={},REC=[],ALG={},SC=null,STAND_ALL={},LSG={};let DAY="",RCP={},PAST=false;
+let LG=CFG.leagues[0][0],MF="",SC_VIEW="today",D={},EX={},REC=[],ALG={},SC=null,STAND_ALL={},LSG={};let DAY="",AUTO_DAY=true,RCP={},PAST=false;
 /* Past-day tabs: blank every today/upcoming widget so nothing from another date renders (CSS also hides their cards). */
 function clearToday(){["comp-banner","mrib","upd","tac-board","take","scor","games","stand","news","soc-tray","hh"].forEach(id=>{const e=$(id);if(e){e.innerHTML="";e.classList.remove("open")}});window.__gTok=(window.__gTok||0)+1}
 function applyLiveOverlay(games){
@@ -44,7 +44,10 @@ async function load(){
   STAND_ALL[LG]=D.standings||[];
  }
  {const td=etDay(new Date().toISOString());D.games=(D.games||[]).filter(g=>!g.date||etDay(g.date)>=td)} // never show games from before today ET
- const TD=etDay(new Date());if(!DAY)DAY=TD;
+ const TD=etDay(new Date());
+ /* Nov 19: default view = today if anything is still to play today, else the next day (<= 7 days) with fixtures, so an
+    off day (international break, late night after the last final) never opens on "No upcoming matches". A day tab click sticks. */
+ if(!DAY||AUTO_DAY){const up=D.games.filter(g=>g.date&&g.state!="post").map(g=>etDay(g.date)),nx=up.filter(d=>d>TD&&d<=dayAdd(TD,7)).sort()[0];DAY=up.includes(TD)||!nx?TD:nx;AUTO_DAY=true}
  D.games=DAY<TD?[]:D.games.filter(g=>!g.date||etDay(g.date)==DAY);
  PAST=DAY<TD;document.body.classList.toggle("pastday",PAST);
  await renderDays(TD);await renderRecap(TD);
@@ -996,7 +999,7 @@ async function renderDays(TD){
  const ds=[];for(let i=-3;i<=7;i++){const d=dayAdd(TD,i);if(d>=TD||RIDX.has(d))ds.push(d)}  /* past days only when a recap file exists */
  const k=ds.indexOf(DAY),pv=k>0?ds[k-1]:null,nx=k>=0&&k<ds.length-1?ds[k+1]:null;
  $("days").innerHTML=`<button data-d="${pv||""}" aria-label="Previous day"${pv?"":" disabled"}>‹</button>`+ds.map(d=>`<button data-d="${d}" class="${d==DAY?"on":""}${d<TD?" past":""}">${dayLbl(d,TD)}</button>`).join("")+`<button data-d="${nx||""}" aria-label="Next day"${nx?"":" disabled"}>›</button>`;
- document.querySelectorAll("#days button").forEach(b=>b.onclick=()=>{if(!b.dataset.d)return;DAY=b.dataset.d;MF="";load()});
+ document.querySelectorAll("#days button").forEach(b=>b.onclick=()=>{if(!b.dataset.d)return;DAY=b.dataset.d;AUTO_DAY=false;MF="";load()});
 }
 async function renderRecap(TD){
  const el=$("recap");if(DAY>=TD||(RIDX&&!RIDX.has(DAY))){el.innerHTML="";return}
