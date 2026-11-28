@@ -87,19 +87,26 @@ def slim_stand(j):
     if j: walk(j,j.get("name"))
     return rows
 
+def _et_today():
+    from zoneinfo import ZoneInfo
+    return datetime.datetime.now(ZoneInfo("America/New_York")).date()
+
 def fetch_one_league(k, p, sport, now):
     if sport=="nfl":
         b=get(f"https://site.api.espn.com/apis/site/v2/sports/{p}/scoreboard")
     else:
-        # Look back 1 day (for recent finals/rest) and forward 8 days
+        # Look back 1 day (for recent finals/rest) and forward 8 days, on the US Eastern calendar.
+        # Nov 27 2026: the runner clock is UTC, so after 7 PM ET "today" was already tomorrow and the
+        # evening's MLS games (MIA-CLB, VAN-RSL) dropped off the board. prune_past.py still removes
+        # anything dated before today ET, so the look-back only keeps tonight's late/finished games.
         b={"events":[],"_sport_path":p};okc=0
-        for i in range(0, 8):
-            dd=(datetime.date.today()+datetime.timedelta(days=i)).strftime("%Y%m%d")
+        for i in range(-1, 8):
+            dd=(_et_today()+datetime.timedelta(days=i)).strftime("%Y%m%d")
             x=get(f"https://site.api.espn.com/apis/site/v2/sports/{p}/scoreboard?dates={dd}"); okc+=x is not None; x=x or {}
             b["events"]+=x.get("events",[]); b.setdefault("leagues",x.get("leagues")); b.setdefault("season",x.get("season"))
         if not b["events"]:
             for i in range(8, 15):
-                dd=(datetime.date.today()+datetime.timedelta(days=i)).strftime("%Y%m%d")
+                dd=(_et_today()+datetime.timedelta(days=i)).strftime("%Y%m%d")
                 x=get(f"https://site.api.espn.com/apis/site/v2/sports/{p}/scoreboard?dates={dd}"); okc+=x is not None; x=x or {}
                 b["events"]+=x.get("events",[]); b.setdefault("leagues",x.get("leagues")); b.setdefault("season",x.get("season"))
         if not okc: b=None
